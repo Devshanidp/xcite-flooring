@@ -1,35 +1,70 @@
 // X-Cite Flooring — admin app. All data is stored in this browser (localStorage).
 
-// ---------- Default rate card (from the X-Cite Flooring PDF, ₹ per sq.ft) ----------
+// ---------- Default rate card (rates derived from X-Cite Flooring invoice) ----------
 const DEFAULT_RATES = [
-  ['Italian Marble', 'Italian marble fitting and polishing', 90],
-  ['Italian Marble', 'Skirting fitting', 90],
-  ['Italian Marble', 'Moulding & tapering', 90],
-  ['Italian Marble', 'Design work and border work', 180],
-  ['Italian Marble', 'Italian wall fittings (8 feet)', 180],
-  ['Italian Marble', 'Stair front steps / kitchen rack (double charge)', 180],
-  ['Italian Marble', '4/5 angle cut', 180],
-  ['Italian Marble', 'Double moulding', 180],
-  ['Kotta Stone', 'Kotta stone polish', 80],
-  ['Kotta Stone', 'Cutting labour (semi polish Kotta)', 80],
-  ['Granite & Others', 'Granite', 45],
-  ['Granite & Others', 'Athangudi tile', 40],
-  ['Granite & Others', 'Swimming pool', 80],
-  ['Granite & Others', 'Swimming pool filling labour', 0],
-  ['Indian Marble', 'Indian marble', 55],
-  ['Indian Marble', 'Skirting fitting', 55],
-  ['Indian Marble', 'Moulding', 55],
-  ['Indian Marble', 'Steps / kitchen rack (double charge)', 110],
-  ['Indian Marble', 'Double moulding (double charge)', 110],
-  ['Tile', 'Tile 4x2', 40],
-  ['Tile', 'Tile 5x3', 40],
-  ['Tile', 'Tile 6x4 bathroom', 45],
-  ['Tile', 'Tile 6x4 common floor', 45],
-  ['Tile', 'Tile skirting', 45],
-  ['Tile', 'Tile 8x4', 60],
-  ['Tile', 'Cladding', 120],
-  ['Tile', 'Cladding epoxy', 10],
-  ['Plastering', 'Floor plastering', 15],
+  // Italian
+  ['Italian', 'Floor fitting', 85],
+  ['Italian', 'Skirting fitting', 85],
+  ['Italian', 'Moulding', 85],
+  ['Italian', 'Beading', 85],
+  ['Italian', 'Polish', 85],
+  ['Italian', 'Riser', 170],
+  ['Italian', 'Step / front step fitting', 170],
+  ['Italian', 'Moulding (step/stair)', 170],
+  ['Italian', 'Double moulding', 170],
+  ['Italian', 'Double Italian fitting', 170],
+  // Marble
+  ['Marble', 'Floor fitting', 40],
+  ['Marble', 'Skirting', 40],
+  ['Marble', 'Moulding', 40],
+  ['Marble', 'Double moulding', 80],
+  ['Marble', 'Beading', 20],
+  // Granite
+  ['Granite', 'Floor fitting', 40],
+  ['Granite', 'Riser', 80],
+  ['Granite', 'Moulding', 40],
+  ['Granite', 'Double moulding', 80],
+  ['Granite', 'Beading', 40],
+  ['Granite', 'Outdoor granite fitting', 80],
+  ['Granite', 'Round / curved', 80],
+  ['Granite', 'Ramp fitting', 80],
+  // Tile & Bathroom
+  ['Tile & Bathroom', 'Wall tiles', 50],
+  ['Tile & Bathroom', 'Floor tiles', 50],
+  ['Tile & Bathroom', 'Skirting', 50],
+  ['Tile & Bathroom', '45° angle cut (per rft)', 100],
+  ['Tile & Bathroom', 'Running feet / corner (per rft)', 50],
+  ['Tile & Bathroom', 'Beading (per rft)', 50],
+  // Stair
+  ['Stair', 'Stair fitting', 170],
+  ['Stair', 'Landing', 80],
+  ['Stair', 'Riser', 170],
+  ['Stair', 'Moulding', 170],
+  ['Stair', 'Beading', 40],
+  ['Stair', 'Skirting fitting', 85],
+  ['Stair', 'Moulding (skirting)', 80],
+  // Cladding
+  ['Cladding', 'Cladding / Gladding', 120],
+  ['Cladding', 'Pool side cladding', 120],
+  // Outdoor & Exterior
+  ['Outdoor & Exterior', 'Charupadi / verandah', 80],
+  ['Outdoor & Exterior', 'Outside steps', 70],
+  ['Outdoor & Exterior', 'Riser (outside steps)', 70],
+  ['Outdoor & Exterior', 'Moulding (outside steps)', 70],
+  ['Outdoor & Exterior', 'Skirting (outside)', 70],
+  ['Outdoor & Exterior', 'Back step', 80],
+  ['Outdoor & Exterior', 'Front step', 170],
+  ['Outdoor & Exterior', 'Plant box riser', 170],
+  ['Outdoor & Exterior', 'Washing area floor', 40],
+  ['Outdoor & Exterior', 'Washing area wall', 40],
+  ['Outdoor & Exterior', 'Garden granite fitting', 80],
+  // Other
+  ['Other', 'Store room tiles', 50],
+  ['Other', 'Kitchen wall tiles', 50],
+  ['Other', 'Work area wall tiles', 50],
+  ['Other', 'Kotta stone polish', 80],
+  ['Other', 'Athangudi tile', 40],
+  ['Other', 'Floor plastering', 15],
 ];
 
 const DEFAULT_SETTINGS = {
@@ -50,7 +85,7 @@ function load() {
     if (d) return d;
   } catch (e) {}
   return {
-    rates: DEFAULT_RATES.map(([category, name, rate]) => ({ id: uid(), category, name, rate, unit: 'sq.ft' })),
+    rates: DEFAULT_RATES.map(([category, name, rate]) => ({ id: uid(), category, name, rate, unit: name.includes('rft') ? 'rft' : 'sq.ft' })),
     visits: [], quotes: [], jobs: [], workers: [],
     settings: { ...DEFAULT_SETTINGS },
     counters: { quote: 0, job: 0 },
@@ -312,7 +347,11 @@ function pickRate(i, rateId) {
   const r = db.rates.find(x => x.id === rateId);
   const it = draft.items[i];
   it.rateId = rateId;
-  if (r) { it.name = `${r.category} – ${r.name}`; it.rate = r.rate; it.unit = r.unit; }
+  if (r) {
+    it.name = `${r.category} – ${r.name}`;
+    it.rate = r.rate;
+    it.unit = r.name.includes('rft') ? 'rft' : r.unit;
+  }
   drawItems();
 }
 
@@ -574,7 +613,7 @@ function importData(file) {
 }
 function resetRates() {
   if (!confirm('Replace the rate card with the original PDF rates?')) return;
-  db.rates = DEFAULT_RATES.map(([category, name, rate]) => ({ id: uid(), category, name, rate, unit: 'sq.ft' }));
+  db.rates = DEFAULT_RATES.map(([category, name, rate]) => ({ id: uid(), category, name, rate, unit: name.includes('rft') ? 'rft' : 'sq.ft' }));
   save(); render();
 }
 
@@ -586,28 +625,28 @@ function printDoc(type, id) {
   const sub = itemsTotal(d.items);
   const total = isQ ? quoteTotal(d) : d.total;
   const paid = isQ ? 0 : jobPaid(d);
-  const nameParts = s.company.split(' ');
   $('#print').innerHTML = `<div class="doc">
     <div class="hd">
-      <div class="logo"><b>${esc(nameParts[0])}</b> ${esc(nameParts.slice(1).join(' '))}</div>
+      <div class="logo"><b>X-CITE</b> FLOORING</div>
       <div class="tag">${esc(s.tagline)}</div>
       <div class="ph">${esc(s.phone)}</div>
     </div>
     <div class="title">${isQ ? 'QUOTATION / ESTIMATE' : 'INVOICE'}</div>
-    <table style="margin-bottom:12px"><tr>
-      <td style="width:60%"><b>To:</b> ${esc(d.client.name)}<br>${esc(d.client.phone)}<br>${esc(d.client.address).replace(/\n/g, '<br>')}</td>
-      <td><b>No:</b> ${isQ ? 'Q-' + d.no : 'INV-' + d.no}<br><b>Date:</b> ${fmtDate(isQ ? d.date : today())}</td>
+    <table style="margin-bottom:14px;border:none"><tr>
+      <td style="width:60%;border:none"><b>To:</b><br>${esc(d.client.name)}<br>${esc(d.client.phone)}${d.client.address ? '<br>' + esc(d.client.address).replace(/\n/g, '<br>') : ''}</td>
+      <td style="border:none;text-align:right"><b>${isQ ? 'Q-' + d.no : 'INV-' + d.no}</b><br>${fmtDate(isQ ? d.date : today())}</td>
     </tr></table>
     <table>
-      <tr><th>#</th><th>Description</th><th class="n">Qty</th><th>Unit</th><th class="n">Rate</th><th class="n">Amount</th></tr>
-      ${d.items.map((it, i) => `<tr><td>${i + 1}</td><td>${esc(it.name)}</td><td class="n">${esc(it.qty)}</td><td>${esc(it.unit)}</td>
-        <td class="n">${money(it.rate)}</td><td class="n">${money(num(it.qty) * num(it.rate))}</td></tr>`).join('')}
-      <tr><td colspan="5" class="n">Subtotal</td><td class="n">${money(sub)}</td></tr>
-      ${num(d.discount) ? `<tr><td colspan="5" class="n">Discount</td><td class="n">-${money(d.discount)}</td></tr>` : ''}
-      ${!isQ && total !== sub - num(d.discount) ? `<tr><td colspan="5" class="n">Adjusted job total</td><td class="n">${money(total)}</td></tr>` : ''}
-      <tr><td colspan="5" class="n"><b>Total</b></td><td class="n"><b>${money(total)}</b></td></tr>
-      ${!isQ ? `<tr><td colspan="5" class="n">Received</td><td class="n">${money(paid)}</td></tr>
-        <tr><td colspan="5" class="n"><b>Balance due</b></td><td class="n"><b>${money(total - paid)}</b></td></tr>` : ''}
+      <tr><th>#</th><th>Description</th><th class="n">Measurement</th><th class="n">Amount (₹)</th></tr>
+      ${d.items.map((it, i) => `<tr><td>${i + 1}</td><td>${esc(it.name)}</td>
+        <td class="n">${esc(it.qty)} × ${esc(it.rate)}</td>
+        <td class="n">${money(num(it.qty) * num(it.rate))}</td></tr>`).join('')}
+      <tr><td colspan="3" class="n">Subtotal</td><td class="n">${money(sub)}</td></tr>
+      ${num(d.discount) ? `<tr><td colspan="3" class="n">Discount</td><td class="n">-${money(d.discount)}</td></tr>` : ''}
+      ${!isQ && total !== sub - num(d.discount) ? `<tr class="totrow"><td colspan="3" class="n">Adjusted Total</td><td class="n">${money(total)}</td></tr>` : ''}
+      <tr class="totrow"><td colspan="3" class="n">Total</td><td class="n">${money(total)}</td></tr>
+      ${!isQ ? `<tr><td colspan="3" class="n">Received</td><td class="n">${money(paid)}</td></tr>
+        <tr class="totrow"><td colspan="3" class="n">Balance Due</td><td class="n">${money(total - paid)}</td></tr>` : ''}
     </table>
     ${d.notes ? `<p>${esc(d.notes).replace(/\n/g, '<br>')}</p>` : ''}
     <div class="note">Note: ${esc(s.terms).replace(/\n/g, '<br>')}</div>
