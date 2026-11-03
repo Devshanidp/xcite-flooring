@@ -1,4 +1,4 @@
-const CACHE = 'xcite-v1';
+const CACHE = 'xcite-v2';
 const FILES = ['./', './index.html', './styles.css', './app.js', './manifest.json', './icon.svg'];
 self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))));
 self.addEventListener('activate', e => e.waitUntil(
