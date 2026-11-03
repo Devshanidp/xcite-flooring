@@ -126,12 +126,14 @@ function formData(form) {
 
 // ---------- Navigation ----------
 const TABS = [
-  ['home', '🏠', 'Home'],
-  ['visits', '📍', 'Visits'],
-  ['quotes', '🧾', 'Quotes'],
-  ['jobs', '🛠️', 'Jobs'],
-  ['workers', '👷', 'Workers'],
-  ['rates', '📋', 'Rates'],
+  ['home',      '🏠', 'Home'],
+  ['visits',    '📍', 'Visits'],
+  ['quotes',    '🧾', 'Quotes'],
+  ['jobs',      '🛠️', 'Jobs'],
+  ['reminders', '🔔', 'Remind'],
+  ['reports',   '📊', 'Reports'],
+  ['workers',   '👷', 'Workers'],
+  ['rates',     '📋', 'Rates'],
 ];
 let tab = location.hash.slice(1) || 'home';
 let filter = 'all';
@@ -143,7 +145,7 @@ window.addEventListener('hashchange', () => { const t = location.hash.slice(1); 
 function render() {
   $('#tabs').innerHTML = TABS.map(([k, i, l]) =>
     `<button class="${tab === k ? 'on' : ''}" onclick="go('${k}')"><span class="i">${i}</span>${l}</button>`).join('');
-  const views = { home: viewHome, visits: viewVisits, quotes: viewQuotes, jobs: viewJobs, workers: viewWorkers, rates: viewRates, settings: viewSettings };
+  const views = { home: viewHome, visits: viewVisits, quotes: viewQuotes, jobs: viewJobs, reminders: viewReminders, reports: viewReports, workers: viewWorkers, rates: viewRates, settings: viewSettings };
   $('#view').innerHTML = (views[tab] || viewHome)();
 }
 
@@ -161,14 +163,24 @@ function matches(obj) {
 }
 
 // ---------- Home ----------
+function dueReminders() {
+  const now = today();
+  return [
+    ...db.visits.filter(v => v.followUp && v.followUp <= now && v.status !== 'cancelled' && v.status !== 'quoted'),
+    ...db.quotes.filter(q => q.followUp && q.followUp <= now && q.status !== 'accepted' && q.status !== 'rejected'),
+  ];
+}
+
 function viewHome() {
   const activeJobs = db.jobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled');
   const pendingBal = db.jobs.filter(j => j.status !== 'cancelled').reduce((s, j) => s + Math.max(0, j.total - jobPaid(j)), 0);
   const upcoming = db.visits.filter(v => v.status === 'new' && v.date >= today()).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)).slice(0, 5);
   const month = today().slice(0, 7);
   const received = db.jobs.flatMap(j => j.payments).filter(p => (p.date || '').startsWith(month)).reduce((s, p) => s + num(p.amount), 0);
+  const due = dueReminders();
   return `
     <h2>Dashboard <button class="btn sec sm" onclick="go('settings')">⚙️ Settings</button></h2>
+    ${due.length ? `<div class="alert-bar" onclick="go('reminders')">🔔 ${due.length} follow-up reminder${due.length > 1 ? 's' : ''} due — tap to view</div>` : ''}
     <div class="stats">
       <div class="stat"><b>${upcoming.length}</b>Upcoming visits</div>
       <div class="stat"><b>${db.quotes.filter(q => q.status === 'draft' || q.status === 'sent').length}</b>Open quotes</div>
@@ -229,6 +241,7 @@ function editVisit(id) {
         <div><label>Approx area (sq.ft)</label><input name="area" type="number" value="${esc(v.area)}"></div>
       </div>
       <label>Notes / measurements</label><textarea name="notes">${esc(v.notes)}</textarea>
+      <label>Follow-up reminder date</label><input name="followUp" type="date" value="${esc(v.followUp)}">
       <div class="btns">
         <button class="btn">Save</button>
         ${id ? `<button type="button" class="btn sec" onclick="quoteFromVisit('${id}')">Create quote</button>
@@ -289,7 +302,7 @@ function rateOptions(selected) {
 function editQuote(id, preset) {
   const q = id ? byId('quotes', id) : null;
   draft = JSON.parse(JSON.stringify(q || {
-    date: today(), status: 'draft', discount: 0, notes: '',
+    date: today(), status: 'draft', discount: 0, notes: '', followUp: '',
     client: { name: '', phone: '', address: '' },
     items: [{ rateId: '', name: '', qty: '', rate: '', unit: 'sq.ft' }],
     ...preset,
@@ -312,6 +325,7 @@ function editQuote(id, preset) {
       <div><div class="total" id="qtotal"></div></div>
     </div>
     <label>Notes (shown on quote)</label><textarea id="qnotes">${esc(draft.notes)}</textarea>
+    <label>Follow-up reminder date</label><input id="qfu" type="date" value="${esc(draft.followUp)}">
     <div class="btns">
       <button class="btn" onclick="saveQuote('${id || ''}')">Save</button>
       ${q ? `
@@ -358,7 +372,7 @@ function pickRate(i, rateId) {
 function saveQuote(id, keepOpen) {
   draft.client = { name: $('#qn').value.trim(), phone: $('#qp').value.trim(), address: $('#qa').value.trim() };
   draft.date = $('#qd').value; draft.status = $('#qs').value; draft.notes = $('#qnotes').value;
-  draft.discount = num($('#qdisc').value);
+  draft.followUp = $('#qfu').value; draft.discount = num($('#qdisc').value);
   draft.items = draft.items.filter(it => it.name || num(it.qty) || num(it.rate));
   if (!draft.client.name) { alert('Enter customer name'); return; }
   if (id) Object.assign(byId('quotes', id), draft);
@@ -566,6 +580,125 @@ function editRate(id) {
     if (id) Object.assign(r, d); else db.rates.push({ id: uid(), ...d });
     save(); closeModal(); render();
   };
+}
+
+// ---------- Reminders ----------
+function viewReminders() {
+  const now = today();
+  const waFollow = (phone, name) => waLink(phone,
+    `Hi ${name}, this is a follow-up from ${db.settings.company} regarding your flooring enquiry. Please let us know if you have any questions.\n\n📞 ${db.settings.phone}`);
+
+  const allItems = [
+    ...db.visits
+      .filter(v => v.followUp && v.status !== 'cancelled' && v.status !== 'quoted')
+      .map(v => ({ type: 'visit', date: v.followUp, id: v.id, label: v.name, phone: v.phone,
+        sub: `📍 Site Visit · ${v.status}${v.service ? ' · ' + v.service : ''}` })),
+    ...db.quotes
+      .filter(q => q.followUp && q.status !== 'accepted' && q.status !== 'rejected')
+      .map(q => ({ type: 'quote', date: q.followUp, id: q.id, label: q.client.name, phone: q.client.phone,
+        sub: `🧾 Q-${q.no} · ${money(quoteTotal(q))} · ${q.status}` })),
+  ].sort((a, b) => a.date.localeCompare(b.date));
+
+  const card = x => {
+    const isOverdue = x.date < now, isToday = x.date === now;
+    const dot = isOverdue ? '🔴' : isToday ? '🟡' : '🟢';
+    return `<div class="card">
+      <div class="row">
+        <span class="big">${dot} ${esc(x.label)}</span>
+        <span class="mut">${fmtDate(x.date)}</span>
+      </div>
+      <div class="mut">${x.sub}</div>
+      <div class="btns" style="margin-top:8px">
+        <button class="btn sm sec" onclick="${x.type === 'visit' ? `editVisit('${x.id}')` : `editQuote('${x.id}')`}">Open</button>
+        ${x.phone ? `<a class="btn sm sec" href="tel:${esc(x.phone)}">📞 Call</a>
+          <a class="btn sm sec" target="_blank" href="${waFollow(x.phone, x.label)}">💬 WhatsApp</a>` : ''}
+      </div>
+    </div>`;
+  };
+
+  const overdue  = allItems.filter(x => x.date < now);
+  const dueToday = allItems.filter(x => x.date === now);
+  const upcoming = allItems.filter(x => x.date > now);
+
+  const section = (title, list) => list.length
+    ? `<h3>${title} (${list.length})</h3>${list.map(card).join('')}` : '';
+
+  return `<h2>Reminders</h2>
+    ${!allItems.length ? `<div class="empty">No reminders yet.<br><span class="mut">Set a follow-up date on any visit or quote.</span></div>` : ''}
+    ${section('🔴 Overdue', overdue)}
+    ${section('🟡 Due Today', dueToday)}
+    ${section('🟢 Upcoming', upcoming)}`;
+}
+
+// ---------- Reports ----------
+function viewReports() {
+  const now = today();
+  const activeJobs = db.jobs.filter(j => j.status !== 'cancelled');
+  const totalValue     = activeJobs.reduce((s, j) => s + num(j.total), 0);
+  const totalCollected = activeJobs.reduce((s, j) => s + jobPaid(j), 0);
+  const pendingBal     = totalValue - totalCollected;
+  const convPct = db.quotes.length ? Math.round(db.jobs.length / db.quotes.length * 100) : 0;
+
+  // Last 6 months
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - i);
+    const m = d.toISOString().slice(0, 7);
+    const label = d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
+    const qCount  = db.quotes.filter(q => (q.date || '').startsWith(m)).length;
+    const jCount  = db.jobs.filter(j => (j.start || '').startsWith(m)).length;
+    const collected = db.jobs.flatMap(j => j.payments)
+      .filter(p => (p.date || '').startsWith(m)).reduce((s, p) => s + num(p.amount), 0);
+    months.push({ label, qCount, jCount, collected });
+  }
+
+  // Visit funnel
+  const vTotal = db.visits.length || 1;
+  const funnel = ['new', 'visited', 'quoted', 'cancelled'].map(s => {
+    const n = db.visits.filter(v => v.status === s).length;
+    return { s, n, pct: Math.round(n / vTotal * 100) };
+  });
+
+  // Top pending balances
+  const pending = activeJobs
+    .map(j => ({ j, bal: j.total - jobPaid(j) }))
+    .filter(x => x.bal > 0)
+    .sort((a, b) => b.bal - a.bal)
+    .slice(0, 8);
+
+  return `<h2>Reports</h2>
+    <div class="stats">
+      <div class="stat"><b>${money(totalValue)}</b>Total job value</div>
+      <div class="stat"><b>${money(totalCollected)}</b>Collected</div>
+      <div class="stat" style="border-color:var(--red)"><b style="color:var(--red)">${money(pendingBal)}</b>Balance due</div>
+      <div class="stat"><b>${convPct}%</b>Quote → Job rate</div>
+    </div>
+
+    <h3>Monthly Activity (last 6 months)</h3>
+    <div style="overflow-x:auto"><table>
+      <tr><th>Month</th><th class="n">Quotes</th><th class="n">Jobs</th><th class="n">Collected</th></tr>
+      ${months.map(m => `<tr>
+        <td>${m.label}</td><td class="n">${m.qCount || '–'}</td>
+        <td class="n">${m.jCount || '–'}</td>
+        <td class="n">${m.collected ? money(m.collected) : '–'}</td>
+      </tr>`).join('')}
+    </table></div>
+
+    <h3>Site Visits Funnel</h3>
+    <div class="card"><table>
+      ${funnel.map(f => `<tr>
+        <td style="text-transform:capitalize;width:90px">${f.s}</td>
+        <td class="n" style="width:40px"><b>${f.n}</b></td>
+        <td><div class="bar-bg"><div class="bar-fill" style="width:${f.pct}%"></div></div></td>
+        <td class="n mut" style="width:40px">${f.pct}%</td>
+      </tr>`).join('')}
+    </table></div>
+
+    <h3>Outstanding Balances</h3>
+    ${pending.length ? pending.map(({ j, bal }) => `<div class="card click" onclick="go('jobs');editJob('${j.id}')">
+      <div class="row"><span>${esc(j.client.name)} <span class="mut">J-${j.no}</span></span><b style="color:var(--red)">${money(bal)}</b></div>
+      <div class="mut">${badge(j.status)} · Total ${money(j.total)} · Paid ${money(jobPaid(j))}</div>
+    </div>`).join('') : '<div class="card" style="color:var(--g)">✅ All balances cleared!</div>'}`;
 }
 
 // ---------- Settings & backup ----------
