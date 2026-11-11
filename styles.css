@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+/* fonts loaded via <link> in index.html */
 
 * { box-sizing: border-box; }
 :root {
@@ -30,7 +30,7 @@
 
 body {
   margin: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: var(--bg);
   color: var(--text);
   font-size: 14px;
@@ -284,3 +284,50 @@ td.n, th.n { text-align: right; }
 .doc .totrow td { font-weight: 700; background: #f5f7ff; }
 .doc .note { margin-top: 20px; font-size: 12px; border-top: 1px solid #eee; padding-top: 10px; color: #666; }
 .doc .sign { margin-top: 50px; text-align: right; color: #333; }
+
+/* ── Item rows in quote/job editor ── */
+.item-row:hover td { background: var(--primary-light); }
+.item-num { width: 30px; color: var(--sub); font-size: 12px; font-weight: 700; text-align: center; }
+.item-sel { font-size: 12px !important; padding: 6px 7px !important; margin-bottom: 4px; border-radius: 6px !important; }
+.item-desc { font-size: 13px !important; padding: 6px 8px !important; border-radius: 6px !important; }
+.inp-sm { padding: 7px 8px !important; font-size: 13px !important; border-radius: 6px !important; }
+.item-amt { font-weight: 700; color: var(--primary); font-size: 14px; white-space: nowrap; }
+.btn-icon-del {
+  width: 30px; height: 30px; border: none; border-radius: 7px;
+  background: var(--red-light); color: var(--red);
+  font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  line-height: 1; padding: 0; transition: background .15s, color .15s;
+}
+.btn-icon-del:hover { background: var(--red); color: #fff; }
+
+/* ── Quote/Invoice total summary ── */
+.summary-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-top: 12px; }
+.summary-line { display: flex; justify-content: space-between; padding: 4px 0; font-size: 14px; color: var(--sub); font-weight: 500; }
+.summary-line span:last-child { font-weight: 600; color: var(--text); }
+.summary-total { display: flex; justify-content: space-between; padding: 12px 0 2px; font-size: 22px; font-weight: 800; color: var(--primary); border-top: 2px solid var(--border); margin-top: 8px; letter-spacing: -.5px; }
+
+/* ── Card meta row (quote / visit cards) ── */
+.card-meta { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 12px; font-weight: 600; align-items: center; color: var(--sub); }
+.card-meta i { vertical-align: -1px; margin-right: 3px; font-size: 13px; }
+.meta-green { color: var(--green) !important; }
+.meta-blue  { color: var(--primary) !important; }
+.meta-red   { color: var(--red) !important; }
+.amount-tag { font-size: 20px; font-weight: 800; color: var(--text); margin-top: 5px; letter-spacing: -.5px; line-height: 1; }
+
+/* ── Job progress ── */
+.prog-row { margin-top: 12px; }
+.prog-info { display: flex; justify-content: space-between; margin-bottom: 7px; font-size: 13px; font-weight: 600; }
+
+/* ── Financial summary in job modal ── */
+.fin-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0; }
+.fin-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; text-align: center; }
+.fin-box .fin-label { font-size: 11px; font-weight: 700; color: var(--sub); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+.fin-box .fin-val { font-size: 24px; font-weight: 800; letter-spacing: -.5px; color: var(--text); }
+.fin-box.fin-bal .fin-val { color: var(--red); }
+.fin-box.fin-paid .fin-val { color: var(--green); }
+
+/* ── Stat span text ── */
+.stat span { display: block; font-size: 12px; color: var(--sub); font-weight: 600; text-transform: uppercase; letter-spacing: .4px; margin-top: 4px; }
+
+/* ── Remix icon sizing in tabs ── */
+.tabs button .i { display: block; font-size: 20px; margin-bottom: 2px; line-height: 1; }

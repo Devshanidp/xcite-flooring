@@ -202,15 +202,15 @@ function formData(form) {
 
 // ---------- Navigation ----------
 const TABS = [
-  ['home',      '🏠', 'Home'],
-  ['visits',    '📍', 'Visits'],
-  ['quotes',    '🧾', 'Quotes'],
-  ['jobs',      '🛠️', 'Jobs'],
-  ['crm',       '👥', 'CRM'],
-  ['reminders', '🔔', 'Remind'],
-  ['reports',   '📊', 'Reports'],
-  ['workers',   '👷', 'Workers'],
-  ['rates',     '📋', 'Rates'],
+  ['home',      'ri-home-5-line',           'Home'],
+  ['visits',    'ri-map-pin-line',           'Visits'],
+  ['quotes',    'ri-file-list-3-line',       'Quotes'],
+  ['jobs',      'ri-tools-line',             'Jobs'],
+  ['crm',       'ri-contacts-book-line',     'CRM'],
+  ['reminders', 'ri-notification-3-line',    'Remind'],
+  ['reports',   'ri-pie-chart-2-line',       'Reports'],
+  ['workers',   'ri-user-settings-line',     'Workers'],
+  ['rates',     'ri-price-tag-3-line',       'Rates'],
 ];
 let tab = location.hash.slice(1) || 'home';
 let filter = 'all';
@@ -221,7 +221,7 @@ window.addEventListener('hashchange', () => { const t = location.hash.slice(1); 
 
 function render() {
   $('#tabs').innerHTML = TABS.map(([k, i, l]) =>
-    `<button class="${tab === k ? 'on' : ''}" onclick="go('${k}')"><span class="i">${i}</span>${l}</button>`).join('');
+    `<button class="${tab === k ? 'on' : ''}" onclick="go('${k}')"><span class="i"><i class="${i}"></i></span>${l}</button>`).join('');
   const views = { home: viewHome, visits: viewVisits, quotes: viewQuotes, jobs: viewJobs, crm: viewCRM, reminders: viewReminders, reports: viewReports, workers: viewWorkers, rates: viewRates, settings: viewSettings };
   $('#view').innerHTML = (views[tab] || viewHome)();
 }
@@ -259,11 +259,11 @@ function viewHome() {
     <h2>Dashboard <button class="btn sec sm" onclick="go('settings')">⚙️ Settings</button></h2>
     ${due.length ? `<div class="alert-bar" onclick="go('reminders')">🔔 ${due.length} follow-up reminder${due.length > 1 ? 's' : ''} due — tap to view</div>` : ''}
     <div class="stats">
-      <div class="stat"><b>${upcoming.length}</b>Upcoming visits</div>
-      <div class="stat"><b>${db.quotes.filter(q => q.status === 'draft' || q.status === 'sent').length}</b>Open quotes</div>
-      <div class="stat"><b>${activeJobs.length}</b>Active jobs</div>
-      <div class="stat"><b>${money(received)}</b>Received this month</div>
-      <div class="stat"><b>${money(pendingBal)}</b>Balance to collect</div>
+      <div class="stat"><b>${upcoming.length}</b><span>Upcoming Visits</span></div>
+      <div class="stat"><b>${db.quotes.filter(q => q.status === 'draft' || q.status === 'sent').length}</b><span>Open Quotes</span></div>
+      <div class="stat"><b>${activeJobs.length}</b><span>Active Jobs</span></div>
+      <div class="stat"><b>${money(received)}</b><span>Received This Month</span></div>
+      <div class="stat"><b>${money(pendingBal)}</b><span>Balance to Collect</span></div>
     </div>
     <div class="btns" style="margin-bottom:12px">
       <button class="btn" onclick="editVisit()">+ Site visit</button>
@@ -280,10 +280,15 @@ const VISIT_STATUS = ['new', 'visited', 'quoted', 'cancelled'];
 
 function visitCard(v) {
   return `<div class="card click" onclick="editVisit('${v.id}')">
-    <div class="row"><span class="big">${esc(v.name)}</span>${badge(v.status)}</div>
-    <div class="mut">📅 ${fmtDate(v.date)} ${esc(v.time)} · 📞 ${esc(v.phone)}</div>
-    <div class="mut">📍 ${esc(v.address)}</div>
-    ${v.service ? `<div class="mut">🔧 ${esc(v.service)}${v.area ? ` · approx ${esc(v.area)} sq.ft` : ''}</div>` : ''}
+    <div class="row">
+      <span class="big">${esc(v.name)}</span>${badge(v.status)}
+    </div>
+    <div class="card-meta">
+      <span><i class="ri-calendar-line"></i>${fmtDate(v.date)}${v.time ? ' ' + v.time : ''}</span>
+      <span><i class="ri-phone-line"></i>${esc(v.phone)}</span>
+      ${v.address ? `<span><i class="ri-map-pin-line"></i>${esc(v.address)}</span>` : ''}
+      ${v.service ? `<span><i class="ri-settings-3-line"></i>${esc(v.service)}${v.area ? ' · ' + esc(v.area) + ' sq.ft' : ''}</span>` : ''}
+    </div>
   </div>`;
 }
 
@@ -356,10 +361,20 @@ function quoteAdvTotal(q) {
 }
 function quoteCard(q) {
   const adv = quoteAdvTotal(q);
+  const total = quoteTotal(q);
+  const bal = total - adv;
   return `<div class="card click" onclick="editQuote('${q.id}')">
-    <div class="row"><span class="big">${esc(q.client.name)}</span>${badge(q.status)}</div>
-    <div class="row"><span class="mut">Q-${q.no} · ${fmtDate(q.date)} · ${q.items.length} item(s)</span><b>${money(quoteTotal(q))}</b></div>
-    ${adv ? `<div class="mut" style="color:var(--g)">💰 Advance received: ${money(adv)}</div>` : ''}
+    <div class="row">
+      <div><div class="big">${esc(q.client.name)}</div><div class="mut" style="margin-top:2px"><i class="ri-phone-line"></i> ${esc(q.client.phone)||'—'}</div></div>
+      <div style="text-align:right">${badge(q.status)}<div class="amount-tag">${money(total)}</div></div>
+    </div>
+    <div class="card-meta">
+      <span><i class="ri-file-list-3-line"></i>Q-${q.no}</span>
+      <span><i class="ri-calendar-line"></i>${fmtDate(q.date)}</span>
+      <span><i class="ri-stack-line"></i>${q.items.length} item${q.items.length !== 1 ? 's' : ''}</span>
+      ${adv ? `<span class="meta-green"><i class="ri-money-dollar-circle-line"></i>Advance ${money(adv)}</span>` : ''}
+      ${adv ? `<span class="meta-blue">Balance ${money(bal)}</span>` : ''}
+    </div>
   </div>`;
 }
 
@@ -407,10 +422,12 @@ function editQuote(id, preset) {
     <label>Site address</label><textarea id="qa">${esc(draft.client.address)}</textarea>
     <h3>Work items</h3>
     <div style="overflow-x:auto"><table class="items" id="items"></table></div>
-    <button class="btn sec sm" style="margin-top:8px" onclick="addItem()">+ Add item</button>
-    <div class="grid2">
-      <div><label>Discount (₹)</label><input id="qdisc" type="number" value="${esc(draft.discount)}" oninput="draft.discount=this.value;drawTotal()"></div>
-      <div><div class="total" id="qtotal"></div></div>
+    <button class="btn sec sm" style="margin-top:10px" onclick="addItem()"><i class="ri-add-line"></i> Add item</button>
+    <div class="summary-box" style="margin-top:14px">
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px">
+        <div style="flex:1"><label style="margin:0 0 4px">Discount (₹)</label><input id="qdisc" type="number" value="${esc(draft.discount)}" oninput="draft.discount=this.value;drawTotal()"></div>
+      </div>
+      <div id="qtotal"></div>
     </div>
     <label>Notes (shown on quote)</label><textarea id="qnotes">${esc(draft.notes)}</textarea>
     <label>Follow-up reminder date</label><input id="qfu" type="date" value="${esc(draft.followUp)}">
@@ -469,22 +486,36 @@ function editAdvance(i) {
 }
 
 function drawItems() {
-  $('#items').innerHTML = `<tr><th>Service</th><th>Description</th><th class="n">Qty</th><th>Unit</th><th class="n">Rate ₹</th><th class="n">Amount</th><th></th></tr>` +
-    draft.items.map((it, i) => `<tr>
-      <td><select style="min-width:140px" onchange="pickRate(${i}, this.value)">${rateOptions(it.rateId)}</select></td>
-      <td><input style="min-width:140px" value="${esc(it.name)}" oninput="draft.items[${i}].name=this.value"></td>
-      <td><input style="width:80px" type="number" step="any" value="${esc(it.qty)}" oninput="draft.items[${i}].qty=this.value;drawTotal()"></td>
-      <td><input style="width:65px" value="${esc(it.unit)}" oninput="draft.items[${i}].unit=this.value"></td>
-      <td><input style="width:80px" type="number" step="any" value="${esc(it.rate)}" oninput="draft.items[${i}].rate=this.value;drawTotal()"></td>
-      <td class="n" id="amt${i}">${money(num(it.qty) * num(it.rate))}</td>
-      <td><button class="btn red sm" onclick="draft.items.splice(${i},1);drawItems()">✕</button></td>
+  $('#items').innerHTML = `<tr>
+    <th class="item-num">#</th>
+    <th colspan="2">Service / Description</th>
+    <th class="n" style="width:72px">Qty</th>
+    <th style="width:62px">Unit</th>
+    <th class="n" style="width:82px">Rate ₹</th>
+    <th class="n" style="width:96px">Amount</th>
+    <th style="width:36px"></th>
+  </tr>` +
+    draft.items.map((it, i) => `<tr class="item-row">
+      <td class="item-num">${i + 1}</td>
+      <td style="padding-right:4px"><select class="item-sel" style="width:100%;min-width:120px" onchange="pickRate(${i}, this.value)">${rateOptions(it.rateId)}</select></td>
+      <td><input class="item-desc" style="width:100%;min-width:120px" value="${esc(it.name)}" placeholder="Description…" oninput="draft.items[${i}].name=this.value"></td>
+      <td><input class="inp-sm" style="width:100%" type="number" step="any" value="${esc(it.qty)}" oninput="draft.items[${i}].qty=this.value;drawTotal()"></td>
+      <td><input class="inp-sm" style="width:100%" value="${esc(it.unit)}" oninput="draft.items[${i}].unit=this.value"></td>
+      <td><input class="inp-sm" style="width:100%" type="number" step="any" value="${esc(it.rate)}" oninput="draft.items[${i}].rate=this.value;drawTotal()"></td>
+      <td class="n item-amt" id="amt${i}">${money(num(it.qty) * num(it.rate))}</td>
+      <td><button class="btn-icon-del" onclick="draft.items.splice(${i},1);drawItems()" title="Remove row">×</button></td>
     </tr>`).join('');
   drawTotal();
 }
 function drawTotal() {
   draft.items.forEach((it, i) => { const c = $('#amt' + i); if (c) c.textContent = money(num(it.qty) * num(it.rate)); });
   const sub = itemsTotal(draft.items);
-  $('#qtotal').innerHTML = `<div class="mut">Subtotal ${money(sub)}</div>Total ${money(Math.max(0, sub - num(draft.discount)))}`;
+  const disc = num(draft.discount);
+  const total = Math.max(0, sub - disc);
+  $('#qtotal').innerHTML =
+    `<div class="summary-line"><span>Subtotal</span><span>${money(sub)}</span></div>` +
+    (disc ? `<div class="summary-line"><span>Discount</span><span>− ${money(disc)}</span></div>` : '') +
+    `<div class="summary-total"><span>Total</span><span>${money(total)}</span></div>`;
 }
 function addItem() { draft.items.push({ rateId: '', name: '', qty: '', rate: '', unit: 'sq.ft' }); drawItems(); }
 function pickRate(i, rateId) {
@@ -546,10 +577,22 @@ function jobCard(j) {
   const paid = jobPaid(j), bal = j.total - paid;
   const pct = j.total ? Math.min(100, Math.round(paid / j.total * 100)) : 0;
   return `<div class="card click" onclick="${tab === 'jobs' ? '' : "go('jobs');"}editJob('${j.id}')">
-    <div class="row"><span class="big">${esc(j.client.name)}</span>${badge(j.status)}</div>
-    <div class="mut">J-${j.no} · Start ${fmtDate(j.start)} · 👷 ${j.workers.length} worker(s)</div>
-    <div class="row"><span class="mut">Paid ${money(paid)} of ${money(j.total)}</span><b style="color:${bal > 0 ? 'var(--red)' : 'var(--g)'}">Bal ${money(bal)}</b></div>
-    <div style="background:#eee;height:6px;border-radius:3px;margin-top:6px"><div style="background:var(--g);height:6px;border-radius:3px;width:${pct}%"></div></div>
+    <div class="row">
+      <div><div class="big">${esc(j.client.name)}</div><div class="mut" style="margin-top:2px"><i class="ri-phone-line"></i> ${esc(j.client.phone)||'—'}</div></div>
+      <div style="text-align:right">${badge(j.status)}<div class="amount-tag">${money(j.total)}</div></div>
+    </div>
+    <div class="card-meta">
+      <span><i class="ri-tools-line"></i>J-${j.no}</span>
+      <span><i class="ri-calendar-line"></i>${fmtDate(j.start)}</span>
+      <span><i class="ri-user-line"></i>${j.workers.length} worker${j.workers.length !== 1 ? 's' : ''}</span>
+    </div>
+    <div class="prog-row">
+      <div class="prog-info">
+        <span class="meta-green"><i class="ri-checkbox-circle-line"></i> Paid ${money(paid)}</span>
+        <span class="${bal > 0 ? 'meta-red' : 'meta-green'}">Bal ${money(bal)}</span>
+      </div>
+      <div class="bar-bg"><div class="bar-fill" style="width:${pct}%"></div></div>
+    </div>
   </div>`;
 }
 
@@ -568,10 +611,13 @@ function editJob(id) {
   const advOk = paid >= num(db.settings.advance);
   openModal(`
     <h2>Job J-${j.no} <button class="btn sec sm" onclick="closeModal()">✕</button></h2>
-    <div class="card">
+    <div class="card" style="background:var(--primary-light);border-color:#c7d4fb">
       <div class="big">${esc(j.client.name)}</div>
-      <div class="mut">📞 ${esc(j.client.phone)} · 📍 ${esc(j.client.address)}</div>
-      <div class="mut">From quote Q-${byId('quotes', j.quoteId)?.no ?? '-'}</div>
+      <div class="card-meta" style="border:none;padding:0;margin-top:6px">
+        <span><i class="ri-phone-line"></i>${esc(j.client.phone)}</span>
+        ${j.client.address ? `<span><i class="ri-map-pin-line"></i>${esc(j.client.address)}</span>` : ''}
+        <span><i class="ri-file-list-3-line"></i>Quote Q-${byId('quotes', j.quoteId)?.no ?? '—'}</span>
+      </div>
     </div>
     <div class="grid2">
       <div><label>Status</label><select id="js">${JOB_STATUS.map(s => `<option ${j.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
@@ -581,25 +627,28 @@ function editJob(id) {
     </div>
 
     <h3>Workers assigned</h3>
-    ${db.workers.length ? db.workers.map(w => `<label style="display:flex;gap:8px;align-items:center;color:#333;font-size:15px">
+    ${db.workers.length ? db.workers.map(w => `<label style="display:flex;gap:8px;align-items:center;color:var(--text);font-size:14px;font-weight:500;margin:6px 0">
       <input type="checkbox" style="width:auto" class="jw" value="${w.id}" ${j.workers.includes(w.id) ? 'checked' : ''}> ${esc(w.name)} <span class="mut">${esc(w.skill)}</span></label>`).join('')
       : '<div class="mut">No workers added yet — add them in the Workers tab.</div>'}
 
     <h3>Payments</h3>
-    ${!advOk && j.status !== 'cancelled' ? `<div class="card" style="background:#fff3e0">⚠️ Advance of ${money(db.settings.advance)} not yet received</div>` : ''}
-    <table>
-      <tr><th>Date</th><th>Mode</th><th>Note</th><th class="n">Amount</th><th></th></tr>
-      ${j.payments.map((p, i) => `<tr><td>${fmtDate(p.date)}</td><td>${esc(p.mode)}</td><td>${esc(p.note)}</td><td class="n">${money(p.amount)}</td>
-        <td><button class="btn red sm" onclick="delPayment('${id}',${i})">✕</button></td></tr>`).join('')}
-    </table>
-    <div class="grid2" style="grid-template-columns:1fr 1fr 1fr 1fr auto;gap:6px;align-items:end">
-      <div><label>Date</label><input id="pd" type="date" value="${today()}"></div>
-      <div><label>Amount</label><input id="pa" type="number"></div>
-      <div><label>Mode</label><select id="pm"><option>Cash</option><option>UPI</option><option>Bank</option><option>Cheque</option></select></div>
-      <div><label>Note</label><input id="pn" placeholder="Advance / part"></div>
-      <div><button class="btn sm" onclick="addPayment('${id}')">Add</button></div>
+    ${!advOk && j.status !== 'cancelled' ? `<div class="alert-bar"><i class="ri-error-warning-line"></i> Advance of ${money(db.settings.advance)} not yet received</div>` : ''}
+    <div class="fin-summary">
+      <div class="fin-box fin-paid"><div class="fin-label"><i class="ri-checkbox-circle-line"></i> Total Paid</div><div class="fin-val">${money(paid)}</div></div>
+      <div class="fin-box fin-bal"><div class="fin-label"><i class="ri-time-line"></i> Balance Due</div><div class="fin-val">${money(j.total - paid)}</div></div>
     </div>
-    <div class="total">Paid ${money(paid)} · Balance ${money(j.total - paid)}</div>
+    <div style="overflow-x:auto"><table>
+      <tr><th>Date</th><th>Mode</th><th>Note</th><th class="n">Amount</th><th></th></tr>
+      ${j.payments.map((p, i) => `<tr><td>${fmtDate(p.date)}</td><td>${esc(p.mode)}</td><td>${esc(p.note)}</td><td class="n item-amt">${money(p.amount)}</td>
+        <td><button class="btn-icon-del" onclick="delPayment('${id}',${i})" title="Delete">×</button></td></tr>`).join('')}
+    </table></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:8px;align-items:end;margin-top:12px">
+      <div><label>Date</label><input id="pd" type="date" value="${today()}"></div>
+      <div><label>Amount (₹)</label><input id="pa" type="number" placeholder="0"></div>
+      <div><label>Mode</label><select id="pm"><option>Cash</option><option>UPI</option><option>Bank</option><option>Cheque</option></select></div>
+      <div><label>Note</label><input id="pn" placeholder="Advance / part payment"></div>
+      <div style="padding-top:18px"><button class="btn sm" onclick="addPayment('${id}')"><i class="ri-add-line"></i> Add</button></div>
+    </div>
 
     <label>Job notes</label><textarea id="jnotes">${esc(j.notes)}</textarea>
     <div class="btns">
