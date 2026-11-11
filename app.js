@@ -747,7 +747,7 @@ function viewCRM() {
       const bal = totalVal - totalPaid;
       const balTag = bal > 0 ? `<b style="color:var(--red)">${money(bal)} due</b>`
                    : totalVal > 0  ? `<span style="color:var(--g)">✅ Cleared</span>` : '';
-      return `<div class="card click" onclick="showCRMStatement(${JSON.stringify(c.key)})">
+      return `<div class="card click" onclick="showCRMStatement('${esc(c.key)}')">`
         <div class="row"><span class="big">${esc(c.name)}</span>${balTag}</div>
         <div class="mut">📞 ${esc(c.phone)}${c.address ? ' · ' + esc(c.address.split('\n')[0]) : ''}</div>
         <div class="mut">${c.visits.length} visit · ${c.quotes.length} quote · ${c.jobs.length} job
@@ -877,7 +877,7 @@ function showCRMStatement(key) {
     <div class="row" style="margin-bottom:8px">
       <h2 style="margin:0">${esc(c.name)}</h2>
       <div style="display:flex;gap:6px">
-        <button class="btn sm sec" onclick="printCRMStatement(${JSON.stringify(key)})">🖨️ Print</button>
+        <button class="btn sm sec" onclick="printCRMStatement('${esc(key)}')">🖨️ Print</button>
         <button class="btn sm sec" onclick="closeModal()">✕</button>
       </div>
     </div>
