@@ -331,3 +331,46 @@ td.n, th.n { text-align: right; }
 
 /* ── Remix icon sizing in tabs ── */
 .tabs button .i { display: block; font-size: 20px; margin-bottom: 2px; line-height: 1; }
+
+/* ── Login screen ── */
+#login-screen {
+  position: fixed; inset: 0; z-index: 200;
+  background: linear-gradient(145deg, #0f1a3d 0%, #1b2a6b 45%, #2a3d8f 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+#login-screen.hidden { display: none; }
+#app.hidden { display: none; }
+.login-wrap { text-align: center; width: 100%; max-width: 400px; padding: 24px; }
+.login-logo { font-size: 28px; letter-spacing: 3.5px; color: rgba(255,255,255,.55); font-weight: 500; }
+.login-logo .lx { color: #fff; font-weight: 800; }
+.login-tagline { color: rgba(255,255,255,.35); font-size: 11px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; margin: 6px 0 36px; }
+.login-box {
+  background: #fff; border-radius: 22px;
+  padding: 34px 30px 28px; box-shadow: 0 30px 90px rgba(0,0,0,.45);
+  text-align: left;
+}
+.login-title { font-size: 23px; font-weight: 800; color: var(--text); margin-bottom: 4px; letter-spacing: -.4px; }
+.login-hint { font-size: 13px; color: var(--sub); font-weight: 500; margin-bottom: 24px; }
+.login-box label { margin-top: 16px; }
+.pass-wrap { position: relative; }
+.pass-wrap input { padding-right: 42px; }
+.pass-eye {
+  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer; color: var(--sub);
+  font-size: 17px; padding: 4px; display: flex; align-items: center;
+}
+.pass-eye:hover { color: var(--primary); }
+.login-err { color: var(--red); font-size: 13px; margin-top: 10px; min-height: 20px; font-weight: 600; }
+.login-btn { width: 100%; margin-top: 22px; padding: 13px; font-size: 15px; font-weight: 700; border-radius: 10px; letter-spacing: .3px; }
+.login-footer { color: rgba(255,255,255,.2); font-size: 11px; margin-top: 26px; letter-spacing: .5px; }
+
+/* ── Topbar logout button ── */
+.btn-logout {
+  background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18);
+  color: rgba(255,255,255,.75); border-radius: 8px;
+  width: 34px; height: 34px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px; transition: background .15s, color .15s;
+}
+.btn-logout:hover { background: rgba(255,255,255,.22); color: #fff; }

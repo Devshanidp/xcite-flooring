@@ -14,10 +14,35 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<!-- Login screen -->
+<div id="login-screen">
+  <div class="login-wrap">
+    <div class="login-logo"><span class="lx">X-CITE</span> FLOORING</div>
+    <div class="login-tagline">Admin Portal</div>
+    <div class="login-box">
+      <div class="login-title">Welcome back</div>
+      <div class="login-hint">Sign in to continue</div>
+      <label>Username</label>
+      <input id="lu" type="text" placeholder="Enter username" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('lp').focus()">
+      <label>Password</label>
+      <div class="pass-wrap">
+        <input id="lp" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+        <button type="button" class="pass-eye" onclick="togglePass()" title="Show/hide"><i id="eye-icon" class="ri-eye-line"></i></button>
+      </div>
+      <div id="lerr" class="login-err"></div>
+      <button class="btn login-btn" onclick="doLogin()"><i class="ri-login-box-line"></i> Sign In</button>
+    </div>
+    <div class="login-footer">X-Cite Flooring · Admin Portal</div>
+  </div>
+</div>
+
 <div id="app">
   <header class="topbar">
     <div class="brand"><span class="x">X-CITE</span> FLOORING</div>
-    <span id="sync-dot" class="sync-dot idle" title="Connecting…"></span>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span id="sync-dot" class="sync-dot idle" title="Connecting…"></span>
+      <button class="btn-logout" onclick="doLogout()" title="Sign out"><i class="ri-logout-box-r-line"></i></button>
+    </div>
   </header>
   <main id="view"></main>
   <nav class="tabs" id="tabs"></nav>

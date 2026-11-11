@@ -73,6 +73,8 @@ const DEFAULT_SETTINGS = {
   phone: '8075438181',
   advance: 50000,
   terms: 'Water, Electricity and Accommodation should be provided by the client.\nAdvance of ₹50,000 must be given before the work is started.',
+  username: 'admin',
+  password: 'xcite2024',
 };
 
 // ---------- Storage ----------
@@ -1108,6 +1110,14 @@ function viewSettings() {
       <label>Terms (printed on quotes & invoices)</label><textarea name="terms" rows="4">${esc(s.terms)}</textarea>
       <div class="btns"><button class="btn">Save settings</button></div>
     </form>
+    <h3>🔐 Login Credentials</h3>
+    <div class="card">
+      <div class="grid2">
+        <div><label>Username</label><input name="username" value="${esc(s.username||'admin')}"></div>
+        <div><label>New password <span class="mut">(blank = keep current)</span></label><input name="password" type="password" placeholder="••••••••" autocomplete="new-password"></div>
+      </div>
+      <div class="btns" style="margin-top:14px"><button class="btn" onclick="event.preventDefault();saveSettings(document.getElementById('sf'))">Save all settings</button></div>
+    </div>
     <h3>☁️ Cloud Sync (Supabase)</h3>
     <div class="card">
       <div class="row" style="margin-bottom:10px">
@@ -1127,7 +1137,13 @@ function viewSettings() {
       </div>
     </div>`;
 }
-function saveSettings(f) { Object.assign(db.settings, formData(f)); db.settings.advance = num(db.settings.advance); save(); alert('Saved'); }
+function saveSettings(f) {
+  const data = formData(f);
+  if (!data.password) delete data.password; // keep existing if blank
+  Object.assign(db.settings, data);
+  db.settings.advance = num(db.settings.advance);
+  save(); alert('Settings saved');
+}
 function exportData() {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' }));
@@ -1191,8 +1207,50 @@ function printDoc(type, id) {
   setTimeout(() => window.print(), 100);
 }
 
+// ---------- Auth ----------
+function checkAuth() {
+  if (sessionStorage.getItem('xcite-auth') === '1') {
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    return true;
+  }
+  document.getElementById('app').classList.add('hidden');
+  setTimeout(() => document.getElementById('lu')?.focus(), 150);
+  return false;
+}
+function doLogin() {
+  const user = (document.getElementById('lu').value || '').trim();
+  const pass = document.getElementById('lp').value || '';
+  const s = db.settings;
+  if (user === (s.username || 'admin') && pass === (s.password || 'xcite2024')) {
+    sessionStorage.setItem('xcite-auth', '1');
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    render(); cloudLoad();
+  } else {
+    document.getElementById('lerr').textContent = 'Incorrect username or password';
+    document.getElementById('lp').value = '';
+    document.getElementById('lp').focus();
+  }
+}
+function doLogout() {
+  if (!confirm('Sign out of X-Cite Flooring?')) return;
+  sessionStorage.removeItem('xcite-auth');
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('lu').value = '';
+  document.getElementById('lp').value = '';
+  document.getElementById('lerr').textContent = '';
+  document.getElementById('lu').focus();
+}
+function togglePass() {
+  const inp = document.getElementById('lp');
+  const icon = document.getElementById('eye-icon');
+  if (inp.type === 'password') { inp.type = 'text'; icon.className = 'ri-eye-off-line'; }
+  else { inp.type = 'password'; icon.className = 'ri-eye-line'; }
+}
+
 // ---------- Start ----------
-render();
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js');
 initSB();
-cloudLoad();
+if (checkAuth()) { render(); cloudLoad(); }
