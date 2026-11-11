@@ -313,6 +313,10 @@ td.n, th.n { text-align: right; }
 .meta-blue  { color: var(--primary) !important; }
 .meta-red   { color: var(--red) !important; }
 .amount-tag { font-size: 20px; font-weight: 800; color: var(--text); margin-top: 5px; letter-spacing: -.5px; line-height: 1; }
+.meta-wa { color: #25d366; font-size: 20px; text-decoration: none; margin-left: auto; display: flex; align-items: center; transition: opacity .15s; }
+.meta-wa:hover { opacity: .75; }
+.export-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.export-row .btn { display: flex; align-items: center; gap: 4px; }
 
 /* ── Job progress ── */
 .prog-row { margin-top: 12px; }

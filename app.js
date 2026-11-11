@@ -288,8 +288,8 @@ function visitCard(v) {
     <div class="card-meta">
       <span><i class="ri-calendar-line"></i>${fmtDate(v.date)}${v.time ? ' ' + v.time : ''}</span>
       <span><i class="ri-phone-line"></i>${esc(v.phone)}</span>
-      ${v.address ? `<span><i class="ri-map-pin-line"></i>${esc(v.address)}</span>` : ''}
       ${v.service ? `<span><i class="ri-settings-3-line"></i>${esc(v.service)}${v.area ? ' · ' + esc(v.area) + ' sq.ft' : ''}</span>` : ''}
+      ${v.phone ? `<a class="meta-wa" href="#" onclick="event.preventDefault();event.stopPropagation();shareVisitCard('${v.id}')" title="Share on WhatsApp"><i class="ri-whatsapp-line"></i></a>` : ''}
     </div>
   </div>`;
 }
@@ -301,7 +301,12 @@ function viewVisits() {
     $('#list').innerHTML = list.length ? list.map(visitCard).join('') : '<div class="empty">No site visits</div>';
   };
   setTimeout(renderList);
-  return `<h2>Site Visits <button class="btn sm" onclick="editVisit()">+ New</button></h2>
+  return `<h2>Site Visits
+    <div class="export-row">
+      <button class="btn sm" onclick="editVisit()"><i class="ri-add-line"></i> New</button>
+      <button class="btn sm sec" onclick="exportVisitsCSV()" title="Export Excel"><i class="ri-file-excel-2-line"></i> Excel</button>
+      <button class="btn sm sec" onclick="printVisitsList()" title="Print / PDF"><i class="ri-printer-line"></i> PDF</button>
+    </div></h2>
     ${chips(VISIT_STATUS)}${searchBox('Search name, phone, place…')}<div id="list"></div>`;
 }
 
@@ -376,6 +381,7 @@ function quoteCard(q) {
       <span><i class="ri-stack-line"></i>${q.items.length} item${q.items.length !== 1 ? 's' : ''}</span>
       ${adv ? `<span class="meta-green"><i class="ri-money-dollar-circle-line"></i>Advance ${money(adv)}</span>` : ''}
       ${adv ? `<span class="meta-blue">Balance ${money(bal)}</span>` : ''}
+      <a class="meta-wa" href="#" onclick="event.preventDefault();event.stopPropagation();shareQuote('${q.id}')" title="Share on WhatsApp"><i class="ri-whatsapp-line"></i></a>
     </div>
   </div>`;
 }
@@ -386,7 +392,12 @@ function viewQuotes() {
     $('#list').innerHTML = list.length ? list.map(quoteCard).join('') : '<div class="empty">No quotes yet</div>';
   };
   setTimeout(renderList);
-  return `<h2>Quotes & Estimates <button class="btn sm" onclick="editQuote()">+ New</button></h2>
+  return `<h2>Quotes & Estimates
+    <div class="export-row">
+      <button class="btn sm" onclick="editQuote()"><i class="ri-add-line"></i> New</button>
+      <button class="btn sm sec" onclick="exportQuotesCSV()" title="Export Excel"><i class="ri-file-excel-2-line"></i> Excel</button>
+      <button class="btn sm sec" onclick="printQuotesList()" title="Print / PDF"><i class="ri-printer-line"></i> PDF</button>
+    </div></h2>
     ${chips(QUOTE_STATUS)}${searchBox('Search customer, phone…')}<div id="list"></div>`;
 }
 
@@ -587,6 +598,7 @@ function jobCard(j) {
       <span><i class="ri-tools-line"></i>J-${j.no}</span>
       <span><i class="ri-calendar-line"></i>${fmtDate(j.start)}</span>
       <span><i class="ri-user-line"></i>${j.workers.length} worker${j.workers.length !== 1 ? 's' : ''}</span>
+      <a class="meta-wa" href="#" onclick="event.preventDefault();event.stopPropagation();shareJob('${j.id}')" title="Share balance on WhatsApp"><i class="ri-whatsapp-line"></i></a>
     </div>
     <div class="prog-row">
       <div class="prog-info">
@@ -604,7 +616,12 @@ function viewJobs() {
     $('#list').innerHTML = list.length ? list.map(jobCard).join('') : '<div class="empty">No jobs yet. Accept a quote to create a job.</div>';
   };
   setTimeout(renderList);
-  return `<h2>Jobs</h2>${chips(JOB_STATUS)}${searchBox('Search customer, phone…')}<div id="list"></div>`;
+  return `<h2>Jobs
+    <div class="export-row">
+      <button class="btn sm sec" onclick="exportJobsCSV()" title="Export Excel"><i class="ri-file-excel-2-line"></i> Excel</button>
+      <button class="btn sm sec" onclick="printJobsList()" title="Print / PDF"><i class="ri-printer-line"></i> PDF</button>
+    </div></h2>
+    ${chips(JOB_STATUS)}${searchBox('Search customer, phone…')}<div id="list"></div>`;
 }
 
 function editJob(id) {
@@ -685,6 +702,160 @@ function shareJob(id) {
   const j = byId('jobs', id), s = db.settings, paid = jobPaid(j);
   const text = `*${s.company}*\nJob J-${j.no} – ${j.client.name}\nTotal: ${money(j.total)}\nReceived: ${money(paid)}\n*Balance: ${money(j.total - paid)}*\n\nThank you!\n📞 ${s.phone}`;
   window.open(waLink(j.client.phone, text), '_blank');
+}
+
+// ---------- Export / Share utilities ----------
+function downloadCSV(filename, headers, rows) {
+  const csv = [headers, ...rows].map(r =>
+    r.map(v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`).join(',')
+  ).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = filename; a.click();
+}
+
+function printTable(title, headers, rows) {
+  const s = db.settings;
+  document.getElementById('print').innerHTML = `<div class="doc">
+    <div class="hd"><div class="logo"><b>X-CITE</b> FLOORING</div>
+      <div class="tag">${esc(s.tagline)}</div><div class="ph">${esc(s.phone)}</div></div>
+    <div class="title">${title.toUpperCase()}</div>
+    <p style="text-align:right;font-size:11px;color:#777;margin:0 0 10px">
+      Exported: ${new Date().toLocaleString('en-IN')}</p>
+    <table>
+      <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
+      ${rows.map(r => `<tr>${r.map(c => `<td>${c == null ? '' : c}</td>`).join('')}</tr>`).join('')}
+    </table>
+    <div class="note">Generated by ${esc(s.company)} · ${esc(s.phone)}</div>
+  </div>`;
+  setTimeout(() => window.print(), 100);
+}
+
+function shareVisitCard(id) {
+  const v = byId('visits', id), s = db.settings;
+  const text = `*${s.company} – Site Visit*\nCustomer: ${v.name}\n📞 ${v.phone}\n📅 ${fmtDate(v.date)}${v.time ? ' ' + v.time : ''}\n📍 ${v.address || ''}\nService: ${v.service || 'TBD'}${v.area ? ' · ' + v.area + ' sq.ft' : ''}\n\n📞 ${s.phone}`;
+  window.open(waLink(v.phone, text), '_blank');
+}
+
+function exportVisitsCSV() {
+  const list = db.visits.filter(v => filter === 'all' || v.status === filter);
+  downloadCSV(`xcite-visits-${today()}.csv`,
+    ['Name', 'Phone', 'Date', 'Time', 'Status', 'Service', 'Area (sq.ft)', 'Address', 'Notes'],
+    list.map(v => [v.name, v.phone, fmtDate(v.date), v.time, v.status, v.service, v.area, v.address, v.notes])
+  );
+}
+function printVisitsList() {
+  const list = db.visits.filter(v => filter === 'all' || v.status === filter);
+  printTable('Site Visits',
+    ['#', 'Name', 'Phone', 'Date', 'Status', 'Service', 'Area'],
+    list.map((v, i) => [i + 1, v.name, v.phone, fmtDate(v.date), v.status, v.service, v.area ? v.area + ' sq.ft' : ''])
+  );
+}
+
+function exportQuotesCSV() {
+  const list = db.quotes.filter(q => filter === 'all' || q.status === filter).sort((a, b) => b.no - a.no);
+  downloadCSV(`xcite-quotes-${today()}.csv`,
+    ['Q-No', 'Customer', 'Phone', 'Date', 'Status', 'Items', 'Total (₹)', 'Advance (₹)', 'Balance (₹)'],
+    list.map(q => {
+      const total = quoteTotal(q), adv = quoteAdvTotal(q);
+      return ['Q-' + q.no, q.client.name, q.client.phone, fmtDate(q.date), q.status, q.items.length, total, adv, total - adv];
+    })
+  );
+}
+function printQuotesList() {
+  const list = db.quotes.filter(q => filter === 'all' || q.status === filter).sort((a, b) => b.no - a.no);
+  printTable('Quotes & Estimates',
+    ['Q-No', 'Customer', 'Phone', 'Date', 'Status', 'Total', 'Advance', 'Balance'],
+    list.map(q => {
+      const total = quoteTotal(q), adv = quoteAdvTotal(q);
+      return ['Q-' + q.no, q.client.name, q.client.phone, fmtDate(q.date), q.status, money(total), money(adv), money(total - adv)];
+    })
+  );
+}
+
+function exportJobsCSV() {
+  const list = db.jobs.filter(j => filter === 'all' || j.status === filter).sort((a, b) => b.no - a.no);
+  downloadCSV(`xcite-jobs-${today()}.csv`,
+    ['J-No', 'Customer', 'Phone', 'Start Date', 'Status', 'Total (₹)', 'Paid (₹)', 'Balance (₹)'],
+    list.map(j => { const paid = jobPaid(j); return ['J-' + j.no, j.client.name, j.client.phone, fmtDate(j.start), j.status, j.total, paid, j.total - paid]; })
+  );
+}
+function printJobsList() {
+  const list = db.jobs.filter(j => filter === 'all' || j.status === filter).sort((a, b) => b.no - a.no);
+  printTable('Jobs / Invoices',
+    ['J-No', 'Customer', 'Phone', 'Start', 'Status', 'Total', 'Paid', 'Balance'],
+    list.map(j => { const paid = jobPaid(j); return ['J-' + j.no, j.client.name, j.client.phone, fmtDate(j.start), j.status, money(j.total), money(paid), money(j.total - paid)]; })
+  );
+}
+
+function exportReportsCSV() {
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - i);
+    const m = d.toISOString().slice(0, 7);
+    const label = d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
+    const qCount = db.quotes.filter(q => (q.date || '').startsWith(m)).length;
+    const jCount = db.jobs.filter(j => (j.start || '').startsWith(m)).length;
+    const collected = db.jobs.flatMap(j => j.payments).filter(p => (p.date || '').startsWith(m)).reduce((s, p) => s + num(p.amount), 0);
+    months.push([label, qCount, jCount, collected]);
+  }
+  downloadCSV(`xcite-report-${today()}.csv`,
+    ['Month', 'Quotes', 'Jobs Started', 'Amount Collected (₹)'],
+    months
+  );
+}
+function printReports() {
+  const activeJobs = db.jobs.filter(j => j.status !== 'cancelled');
+  const totalValue = activeJobs.reduce((s, j) => s + num(j.total), 0);
+  const collected  = activeJobs.reduce((s, j) => s + jobPaid(j), 0);
+  const pending    = totalValue - collected;
+  const rows = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - i);
+    const m = d.toISOString().slice(0, 7);
+    const label = d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
+    const qCount = db.quotes.filter(q => (q.date || '').startsWith(m)).length;
+    const jCount = db.jobs.filter(j => (j.start || '').startsWith(m)).length;
+    const col = db.jobs.flatMap(j => j.payments).filter(p => (p.date || '').startsWith(m)).reduce((s, p) => s + num(p.amount), 0);
+    rows.push([label, qCount, jCount, money(col)]);
+  }
+  printTable('Business Reports',
+    ['Month', 'Quotes', 'Jobs', 'Collected'],
+    [['Total Job Value', '', '', money(totalValue)], ['Collected', '', '', money(collected)], ['Balance Due', '', '', money(pending)], ...rows]
+  );
+}
+function shareReports() {
+  const activeJobs = db.jobs.filter(j => j.status !== 'cancelled');
+  const totalValue = activeJobs.reduce((s, j) => s + num(j.total), 0);
+  const collected  = activeJobs.reduce((s, j) => s + jobPaid(j), 0);
+  const convPct = db.quotes.length ? Math.round(db.jobs.length / db.quotes.length * 100) : 0;
+  const thisMonth = today().slice(0, 7);
+  const monthRec = db.jobs.flatMap(j => j.payments).filter(p => (p.date || '').startsWith(thisMonth)).reduce((s, p) => s + num(p.amount), 0);
+  const s = db.settings;
+  const text = `*${s.company} – Business Summary*\n` +
+    `📊 Total Job Value: ${money(totalValue)}\n💰 Total Collected: ${money(collected)}\n⏳ Balance Due: ${money(totalValue - collected)}\n📈 Quote→Job Rate: ${convPct}%\n📅 Received This Month: ${money(monthRec)}\n\n📞 ${s.phone}`;
+  window.open(waLink('', text), '_blank');
+}
+function shareReminders() {
+  const now = today();
+  const all = [
+    ...db.visits.filter(v => v.followUp && v.status !== 'cancelled' && v.status !== 'quoted')
+      .map(v => ({ date: v.followUp, label: v.name, sub: 'Visit' })),
+    ...db.quotes.filter(q => q.followUp && q.status !== 'accepted' && q.status !== 'rejected')
+      .map(q => ({ date: q.followUp, label: q.client.name, sub: 'Q-' + q.no })),
+  ].sort((a, b) => a.date.localeCompare(b.date));
+  const overdue  = all.filter(x => x.date < now);
+  const dueToday = all.filter(x => x.date === now);
+  const upcoming = all.filter(x => x.date > now);
+  const fmt = list => list.map(x => `• ${x.label} (${x.sub}) – ${fmtDate(x.date)}`).join('\n');
+  const s = db.settings;
+  let text = `*${s.company} – Follow-up Reminders*\n`;
+  if (overdue.length)  text += `\n🔴 Overdue (${overdue.length}):\n${fmt(overdue)}`;
+  if (dueToday.length) text += `\n🟡 Due Today (${dueToday.length}):\n${fmt(dueToday)}`;
+  if (upcoming.length) text += `\n🟢 Upcoming (${upcoming.length}):\n${fmt(upcoming)}`;
+  if (!all.length) text += '\nNo reminders set.';
+  text += `\n\n📞 ${s.phone}`;
+  window.open(waLink('', text), '_blank');
 }
 
 // ---------- Workers ----------
@@ -810,7 +981,10 @@ function viewReminders() {
   const section = (title, list) => list.length
     ? `<h3>${title} (${list.length})</h3>${list.map(card).join('')}` : '';
 
-  return `<h2>Reminders</h2>
+  return `<h2>Reminders
+    <div class="export-row">
+      <button class="btn sm sec" onclick="shareReminders()" title="Share on WhatsApp"><i class="ri-whatsapp-line"></i> Share</button>
+    </div></h2>
     ${!allItems.length ? `<div class="empty">No reminders yet.<br><span class="mut">Set a follow-up date on any visit or quote.</span></div>` : ''}
     ${section('🔴 Overdue', overdue)}
     ${section('🟡 Due Today', dueToday)}
@@ -853,12 +1027,17 @@ function viewReports() {
     .sort((a, b) => b.bal - a.bal)
     .slice(0, 8);
 
-  return `<h2>Reports</h2>
+  return `<h2>Reports
+    <div class="export-row">
+      <button class="btn sm sec" onclick="shareReports()" title="Share on WhatsApp"><i class="ri-whatsapp-line"></i> Share</button>
+      <button class="btn sm sec" onclick="exportReportsCSV()" title="Export Excel"><i class="ri-file-excel-2-line"></i> Excel</button>
+      <button class="btn sm sec" onclick="printReports()" title="Print / PDF"><i class="ri-printer-line"></i> PDF</button>
+    </div></h2>
     <div class="stats">
-      <div class="stat"><b>${money(totalValue)}</b>Total job value</div>
-      <div class="stat"><b>${money(totalCollected)}</b>Collected</div>
-      <div class="stat" style="border-color:var(--red)"><b style="color:var(--red)">${money(pendingBal)}</b>Balance due</div>
-      <div class="stat"><b>${convPct}%</b>Quote → Job rate</div>
+      <div class="stat"><b>${money(totalValue)}</b><span>Total Job Value</span></div>
+      <div class="stat"><b>${money(totalCollected)}</b><span>Collected</span></div>
+      <div class="stat" style="border-color:var(--red)"><b style="color:var(--red)">${money(pendingBal)}</b><span>Balance Due</span></div>
+      <div class="stat"><b>${convPct}%</b><span>Quote → Job Rate</span></div>
     </div>
 
     <h3>Monthly Activity (last 6 months)</h3>
