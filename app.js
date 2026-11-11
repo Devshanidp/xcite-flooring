@@ -762,74 +762,137 @@ function viewCRM() {
 function showCRMStatement(key) {
   const c = buildCustomerMap().get(key);
   if (!c) return;
-  const activeJobs = c.jobs.filter(j => j.status !== 'cancelled');
-  const totalVal   = activeJobs.reduce((s, j) => s + num(j.total), 0);
-  const totalPaid  = activeJobs.reduce((s, j) => s + jobPaid(j), 0);
+  const activeJobs  = c.jobs.filter(j => j.status !== 'cancelled');
+  const totalVal    = activeJobs.reduce((s, j) => s + num(j.total), 0);
+  const totalPaid   = activeJobs.reduce((s, j) => s + jobPaid(j), 0);
   const totalQuoted = c.quotes.reduce((s, q) => s + quoteTotal(q), 0);
   const bal = totalVal - totalPaid;
-
   const workerName = id => { const w = db.workers.find(x => x.id === id); return w ? w.name : id; };
 
-  const visitRows = c.visits.length ? c.visits.map(v => `
-    <div class="crm-row">
-      <span>${fmtDate(v.date)}${v.time ? ' ' + v.time : ''}</span>
-      ${badge(v.status)}
-      <span>${esc(v.service || '')}${v.area ? ' · ' + v.area + ' sq.ft' : ''}</span>
-      <span class="mut">${esc(v.address || '')}</span>
-    </div>`).join('') : '<div class="mut">No visits</div>';
+  // Build unified chronological timeline
+  const timeline = [
+    ...c.visits.map(v => ({ kind: 'visit',  date: v.date  || '', obj: v })),
+    ...c.quotes.map(q => ({ kind: 'quote',  date: q.date  || '', obj: q })),
+    ...c.jobs  .map(j => ({ kind: 'job',    date: j.start || '', obj: j })),
+  ].sort((a, b) => a.date.localeCompare(b.date));
 
-  const quoteRows = c.quotes.length ? c.quotes.map(q => `
-    <div class="crm-block">
-      <div class="row"><b>Q-${q.no}</b> ${fmtDate(q.date)} ${badge(q.status)}
-        <b>${money(quoteTotal(q))}</b>
-        <button class="btn sm sec" onclick="closeModal();editQuote('${q.id}')">Open</button>
-      </div>
-      <table style="margin-top:6px">
-        ${q.items.map(it => `<tr><td>${esc(it.name)}</td><td class="n mut">${esc(it.qty)} × ${esc(it.rate)}</td><td class="n">${money(num(it.qty)*num(it.rate))}</td></tr>`).join('')}
-        ${num(q.discount) ? `<tr><td class="mut">Discount</td><td></td><td class="n mut">−${money(q.discount)}</td></tr>` : ''}
-      </table>
-      ${q.advance && num(q.advance.amount) ? `<div class="mut" style="margin-top:4px">💰 Advance ${money(q.advance.amount)} (${q.advance.mode})</div>` : ''}
-    </div>`).join('') : '<div class="mut">No quotes</div>';
+  const renderEntry = ({ kind, date, obj }) => {
+    if (kind === 'visit') {
+      const v = obj;
+      return `<div class="tl-entry">
+        <div class="tl-dot tl-visit"></div>
+        <div class="tl-card">
+          <div class="tl-head">
+            <span class="tl-type">📍 Site Visit</span>
+            <span class="mut">${fmtDate(v.date)}${v.time ? ' ' + v.time : ''}</span>
+            ${badge(v.status)}
+            <button class="btn sm sec" onclick="closeModal();editVisit('${v.id}')">Edit</button>
+          </div>
+          ${v.service ? `<div class="mut">${esc(v.service)}${v.area ? ' · ' + v.area + ' sq.ft' : ''}</div>` : ''}
+          ${v.address ? `<div class="mut">📍 ${esc(v.address)}</div>` : ''}
+          ${v.notes   ? `<div class="mut" style="margin-top:4px">${esc(v.notes)}</div>` : ''}
+          ${v.phone   ? `<div class="tl-actions">
+            <a class="btn sm sec" href="tel:${esc(v.phone)}">📞 Call</a>
+            <a class="btn sm sec" target="_blank" href="${waLink(v.phone,'Hi, following up on your flooring enquiry.\n\n' + db.settings.company + '\n📞 ' + db.settings.phone)}">💬 WhatsApp</a>
+          </div>` : ''}
+        </div>
+      </div>`;
+    }
 
-  const jobRows = c.jobs.length ? c.jobs.map(j => {
-    const paid = jobPaid(j), jbal = j.total - paid;
-    return `<div class="crm-block">
-      <div class="row"><b>J-${j.no}</b> ${fmtDate(j.start)} ${badge(j.status)}
-        <b>${money(j.total)}</b>
-        <button class="btn sm sec" onclick="closeModal();go('jobs');editJob('${j.id}')">Open</button>
-      </div>
-      <table style="margin-top:6px">
-        ${j.items.map(it => `<tr><td>${esc(it.name)}</td><td class="n mut">${esc(it.qty)} × ${esc(it.rate)}</td><td class="n">${money(num(it.qty)*num(it.rate))}</td></tr>`).join('')}
-      </table>
-      ${j.workers.length ? `<div class="mut" style="margin-top:6px">👷 ${j.workers.map(workerName).join(', ')}</div>` : ''}
-      <table style="margin-top:8px">
-        <tr><th>Date</th><th>Mode</th><th>Note</th><th class="n">Amount</th></tr>
-        ${j.payments.map(p => `<tr><td>${fmtDate(p.date)}</td><td>${esc(p.mode)}</td><td>${esc(p.note)}</td><td class="n">${money(p.amount)}</td></tr>`).join('')}
-        <tr style="font-weight:700"><td colspan="3">Balance due</td><td class="n" style="color:${jbal>0?'var(--red)':'var(--g)'}">${money(jbal)}</td></tr>
-      </table>
-    </div>`;
-  }).join('') : '<div class="mut">No jobs</div>';
+    if (kind === 'quote') {
+      const q = obj;
+      const qt = quoteTotal(q);
+      return `<div class="tl-entry">
+        <div class="tl-dot tl-quote"></div>
+        <div class="tl-card">
+          <div class="tl-head">
+            <span class="tl-type">🧾 Estimate</span>
+            <b>Q-${q.no}</b>
+            <span class="mut">${fmtDate(q.date)}</span>
+            ${badge(q.status)}
+            <b>${money(qt)}</b>
+            <button class="btn sm sec" onclick="closeModal();editQuote('${q.id}')">Edit</button>
+          </div>
+          <table style="margin-top:8px;width:100%">
+            <tr><th>Description</th><th class="n">Measurement</th><th class="n">Amount</th></tr>
+            ${q.items.map(it => `<tr>
+              <td>${esc(it.name)}</td>
+              <td class="n mut">${esc(it.qty)} × ${esc(it.rate)}</td>
+              <td class="n">${money(num(it.qty)*num(it.rate))}</td>
+            </tr>`).join('')}
+            ${num(q.discount) ? `<tr><td class="mut" colspan="2">Discount</td><td class="n mut">−${money(q.discount)}</td></tr>` : ''}
+            <tr class="tl-total"><td colspan="2"><b>Total</b></td><td class="n"><b>${money(qt)}</b></td></tr>
+          </table>
+          ${q.advance && num(q.advance.amount) ? `<div class="tl-adv">💰 Advance received: <b>${money(q.advance.amount)}</b> · ${esc(q.advance.mode)} · ${fmtDate(q.advance.date)}</div>` : ''}
+          ${q.notes ? `<div class="mut" style="margin-top:6px">${esc(q.notes)}</div>` : ''}
+        </div>
+      </div>`;
+    }
+
+    if (kind === 'job') {
+      const j = obj;
+      const paid = jobPaid(j), jbal = j.total - paid;
+      const pct  = j.total ? Math.min(100, Math.round(paid / j.total * 100)) : 0;
+      return `<div class="tl-entry">
+        <div class="tl-dot tl-job"></div>
+        <div class="tl-card">
+          <div class="tl-head">
+            <span class="tl-type">🛠️ Job / Invoice</span>
+            <b>J-${j.no}</b>
+            <span class="mut">${fmtDate(j.start)}</span>
+            ${badge(j.status)}
+            <button class="btn sm sec" onclick="closeModal();go('jobs');editJob('${j.id}')">Edit</button>
+          </div>
+          <table style="margin-top:8px;width:100%">
+            <tr><th>Description</th><th class="n">Measurement</th><th class="n">Amount</th></tr>
+            ${j.items.map(it => `<tr>
+              <td>${esc(it.name)}</td>
+              <td class="n mut">${esc(it.qty)} × ${esc(it.rate)}</td>
+              <td class="n">${money(num(it.qty)*num(it.rate))}</td>
+            </tr>`).join('')}
+            <tr class="tl-total"><td colspan="2"><b>Job Total</b></td><td class="n"><b>${money(j.total)}</b></td></tr>
+          </table>
+          ${j.workers.length ? `<div class="mut" style="margin-top:6px">👷 ${j.workers.map(workerName).join(', ')}</div>` : ''}
+          <table style="margin-top:10px;width:100%">
+            <tr><th>Payment Date</th><th>Mode</th><th>Note</th><th class="n">Amount</th></tr>
+            ${j.payments.length ? j.payments.map(p => `<tr>
+              <td>${fmtDate(p.date)}</td><td>${esc(p.mode)}</td><td>${esc(p.note)}</td>
+              <td class="n">${money(p.amount)}</td>
+            </tr>`).join('') : `<tr><td colspan="4" class="mut">No payments yet</td></tr>`}
+          </table>
+          <div style="margin-top:8px">
+            <div style="background:#e8f5e9;border-radius:4px;height:8px"><div style="background:var(--g);height:8px;border-radius:4px;width:${pct}%"></div></div>
+            <div class="row" style="margin-top:4px">
+              <span class="mut">Paid ${money(paid)} of ${money(j.total)}</span>
+              <b style="color:${jbal>0?'var(--red)':'var(--g)'}">${jbal>0?'Balance '+money(jbal):'✅ Fully paid'}</b>
+            </div>
+          </div>
+          ${j.notes ? `<div class="mut" style="margin-top:6px">${esc(j.notes)}</div>` : ''}
+        </div>
+      </div>`;
+    }
+  };
 
   openModal(`
-    <div class="row" style="margin-bottom:12px">
+    <div class="row" style="margin-bottom:8px">
       <h2 style="margin:0">${esc(c.name)}</h2>
       <div style="display:flex;gap:6px">
         <button class="btn sm sec" onclick="printCRMStatement(${JSON.stringify(key)})">🖨️ Print</button>
         <button class="btn sm sec" onclick="closeModal()">✕</button>
       </div>
     </div>
-    <div class="mut" style="margin-bottom:12px">📞 ${esc(c.phone)}${c.address ? '<br>📍 ' + esc(c.address) : ''}</div>
-
+    <div class="mut" style="margin-bottom:12px">📞 ${esc(c.phone)}${c.address ? ' · 📍 ' + esc(c.address.split('\n')[0]) : ''}</div>
     <div class="stats" style="margin-bottom:16px">
-      <div class="stat"><b>${money(totalQuoted)}</b>Total estimated</div>
+      <div class="stat"><b>${money(totalQuoted)}</b>Estimated</div>
       <div class="stat"><b>${money(totalVal)}</b>Job value</div>
       <div class="stat"><b>${money(totalPaid)}</b>Collected</div>
-      <div class="stat" style="${bal>0?'border-color:var(--red)':''}"><b style="color:${bal>0?'var(--red)':'var(--g)'}">${money(bal)}</b>Balance</div>
+      <div class="stat" style="${bal>0?'border-color:var(--red)':''}">
+        <b style="color:${bal>0?'var(--red)':'var(--g)'}">${money(bal)}</b>Balance
+      </div>
     </div>
-
-    <h3>📍 Site Visits</h3>${visitRows}
-    <h3>🧾 Estimates / Quotes</h3>${quoteRows}
-    <h3>🛠️ Jobs & Accounts</h3>${jobRows}
+    <div class="timeline">
+      ${timeline.length ? timeline.map(renderEntry).join('') : '<div class="empty">No records yet</div>'}
+    </div>
   `);
 }
 
