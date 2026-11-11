@@ -1209,7 +1209,7 @@ function printDoc(type, id) {
 
 // ---------- Auth ----------
 function checkAuth() {
-  if (sessionStorage.getItem('xcite-auth') === '1') {
+  if (sessionStorage.getItem('xcite-auth')) {
     document.getElementById('login-screen').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
     return true;
@@ -1242,6 +1242,12 @@ function doLogout() {
   document.getElementById('lp').value = '';
   document.getElementById('lerr').textContent = '';
   document.getElementById('lu').focus();
+}
+function doDemo() {
+  sessionStorage.setItem('xcite-auth', 'demo');
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  render(); cloudLoad();
 }
 function togglePass() {
   const inp = document.getElementById('lp');
