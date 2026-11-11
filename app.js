@@ -91,7 +91,64 @@ function load() {
     counters: { quote: 0, job: 0 },
   };
 }
-function save() { localStorage.setItem(KEY, JSON.stringify(db)); }
+// ---------- Supabase ----------
+const SB_URL = 'https://tjvuikerdkwnhdqhkkyz.supabase.co';
+const SB_KEY = 'sb_publishable_c7p_NVsJGdCX2S8etOshnw_Oy2REkoY';
+let sb = null;
+let syncState = 'idle';   // idle | syncing | ok | error
+let lastSyncTime = null;
+
+function initSB() {
+  try { sb = window.supabase?.createClient(SB_URL, SB_KEY) || null; } catch (e) { sb = null; }
+}
+
+function setSyncDot(state) {
+  syncState = state;
+  const el = document.getElementById('sync-dot');
+  if (!el) return;
+  el.className = 'sync-dot ' + state;
+  el.title = { idle: 'Connecting…', syncing: 'Syncing…', ok: 'Synced ✓', error: 'Sync failed — offline mode' }[state] || '';
+}
+
+async function cloudSave() {
+  if (!sb) return;
+  setSyncDot('syncing');
+  try {
+    const { error } = await sb.from('xcite_data').upsert({ id: 'main', data: db }, { onConflict: 'id' });
+    if (error) throw error;
+    lastSyncTime = new Date();
+    setSyncDot('ok');
+  } catch (e) {
+    console.warn('Cloud save failed:', e.message);
+    setSyncDot('error');
+  }
+}
+
+async function cloudLoad() {
+  if (!sb) return;
+  setSyncDot('syncing');
+  try {
+    const { data, error } = await sb.from('xcite_data').select('data').eq('id', 'main').maybeSingle();
+    if (error) throw error;
+    if (data?.data) {
+      db = data.data;
+      localStorage.setItem(KEY, JSON.stringify(db));
+      lastSyncTime = new Date();
+      setSyncDot('ok');
+      render();
+    } else {
+      await cloudSave();   // first run — push local data up
+    }
+  } catch (e) {
+    console.warn('Cloud load failed:', e.message);
+    setSyncDot('error');
+  }
+}
+
+function save() {
+  localStorage.setItem(KEY, JSON.stringify(db));
+  cloudSave();   // async background sync, never blocks UI
+}
 
 // ---------- Helpers ----------
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
@@ -957,12 +1014,21 @@ function viewSettings() {
       <label>Terms (printed on quotes & invoices)</label><textarea name="terms" rows="4">${esc(s.terms)}</textarea>
       <div class="btns"><button class="btn">Save settings</button></div>
     </form>
-    <h3>Backup</h3>
+    <h3>☁️ Cloud Sync (Supabase)</h3>
     <div class="card">
-      <p class="mut">Data is saved on this device only. Download a backup regularly and restore it on a new phone.</p>
+      <div class="row" style="margin-bottom:10px">
+        <span>${syncState === 'ok' ? '✅ Synced' : syncState === 'syncing' ? '🔄 Syncing…' : syncState === 'error' ? '⚠️ Sync failed — working offline' : '⏳ Connecting…'}
+          ${lastSyncTime ? `<span class="mut"> · ${lastSyncTime.toLocaleTimeString('en-IN')}</span>` : ''}</span>
+        <button class="btn sm sec" onclick="cloudLoad()">🔄 Sync now</button>
+      </div>
+      <div class="mut" style="font-size:12px">All data auto-syncs to Supabase on every change. Use local backup below as extra safety.</div>
+    </div>
+    <h3>💾 Local Backup</h3>
+    <div class="card">
+      <p class="mut">Download a full backup file. Restore it on any device to migrate all data.</p>
       <div class="btns">
         <button class="btn sec" onclick="exportData()">⬇️ Download backup</button>
-        <label class="btn sec" style="margin:0;color:var(--g);font-size:14px">⬆️ Restore backup<input type="file" accept=".json" style="display:none" onchange="importData(this.files[0])"></label>
+        <label class="btn sec" style="margin:0;color:var(--g);font-size:14px">⬆️ Restore from file<input type="file" accept=".json" style="display:none" onchange="importData(this.files[0])"></label>
         <button class="btn red" onclick="resetRates()">Reset rate card</button>
       </div>
     </div>`;
@@ -1033,3 +1099,5 @@ function printDoc(type, id) {
 // ---------- Start ----------
 render();
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js');
+initSB();
+cloudLoad();
