@@ -108,6 +108,25 @@ function itemsTotal(items) { return items.reduce((s, it) => s + num(it.qty) * nu
 function quoteTotal(q) { return Math.max(0, itemsTotal(q.items) - num(q.discount)); }
 function jobPaid(j) { return j.payments.reduce((s, p) => s + num(p.amount), 0); }
 
+function buildCustomerMap() {
+  const map = new Map();
+  const normalize = p => String(p || '').replace(/\D/g, '').slice(-10);
+  const ckey = (phone, name) => normalize(phone) || (name || '').toLowerCase().trim();
+  const upsert = (phone, name, address) => {
+    const k = ckey(phone, name); if (!k) return null;
+    if (!map.has(k)) map.set(k, { key: k, phone: phone || '', name: name || '', address: address || '', visits: [], quotes: [], jobs: [] });
+    const c = map.get(k);
+    if (name && name.length > c.name.length) c.name = name;
+    if (address && !c.address) c.address = address;
+    if (phone && !c.phone) c.phone = phone;
+    return c;
+  };
+  db.visits.forEach(v => { const c = upsert(v.phone, v.name, v.address); if (c) c.visits.push(v); });
+  db.quotes.forEach(q => { const c = upsert(q.client.phone, q.client.name, q.client.address); if (c) c.quotes.push(q); });
+  db.jobs.forEach(j => { const c = upsert(j.client.phone, j.client.name, j.client.address); if (c) c.jobs.push(j); });
+  return map;
+}
+
 function waLink(phone, text) {
   let p = String(phone || '').replace(/\D/g, '');
   if (p.length === 10) p = '91' + p;
@@ -130,6 +149,7 @@ const TABS = [
   ['visits',    '📍', 'Visits'],
   ['quotes',    '🧾', 'Quotes'],
   ['jobs',      '🛠️', 'Jobs'],
+  ['crm',       '👥', 'CRM'],
   ['reminders', '🔔', 'Remind'],
   ['reports',   '📊', 'Reports'],
   ['workers',   '👷', 'Workers'],
@@ -145,7 +165,7 @@ window.addEventListener('hashchange', () => { const t = location.hash.slice(1); 
 function render() {
   $('#tabs').innerHTML = TABS.map(([k, i, l]) =>
     `<button class="${tab === k ? 'on' : ''}" onclick="go('${k}')"><span class="i">${i}</span>${l}</button>`).join('');
-  const views = { home: viewHome, visits: viewVisits, quotes: viewQuotes, jobs: viewJobs, reminders: viewReminders, reports: viewReports, workers: viewWorkers, rates: viewRates, settings: viewSettings };
+  const views = { home: viewHome, visits: viewVisits, quotes: viewQuotes, jobs: viewJobs, crm: viewCRM, reminders: viewReminders, reports: viewReports, workers: viewWorkers, rates: viewRates, settings: viewSettings };
   $('#view').innerHTML = (views[tab] || viewHome)();
 }
 
@@ -302,7 +322,7 @@ function rateOptions(selected) {
 function editQuote(id, preset) {
   const q = id ? byId('quotes', id) : null;
   draft = JSON.parse(JSON.stringify(q || {
-    date: today(), status: 'draft', discount: 0, notes: '', followUp: '',
+    date: today(), status: 'draft', discount: 0, notes: '', followUp: '', advance: null,
     client: { name: '', phone: '', address: '' },
     items: [{ rateId: '', name: '', qty: '', rate: '', unit: 'sq.ft' }],
     ...preset,
@@ -326,6 +346,15 @@ function editQuote(id, preset) {
     </div>
     <label>Notes (shown on quote)</label><textarea id="qnotes">${esc(draft.notes)}</textarea>
     <label>Follow-up reminder date</label><input id="qfu" type="date" value="${esc(draft.followUp)}">
+    <div class="adv-box">
+      <b>💰 Advance Received</b> <span class="mut">(leave blank if none)</span>
+      <div class="grid2" style="margin-top:8px">
+        <div><label>Amount (₹)</label><input id="qadva" type="number" placeholder="0" value="${esc(draft.advance?.amount || '')}"></div>
+        <div><label>Date</label><input id="qadvd" type="date" value="${esc(draft.advance?.date || today())}"></div>
+        <div><label>Mode</label><select id="qadvm">${['Cash','UPI','Bank','Cheque'].map(m=>`<option${(draft.advance?.mode||'Cash')===m?' selected':''}>${m}</option>`).join('')}</select></div>
+        <div><label>Note</label><input id="qadvn" value="${esc(draft.advance?.note||'Advance')}"></div>
+      </div>
+    </div>
     <div class="btns">
       <button class="btn" onclick="saveQuote('${id || ''}')">Save</button>
       ${q ? `
@@ -373,6 +402,8 @@ function saveQuote(id, keepOpen) {
   draft.client = { name: $('#qn').value.trim(), phone: $('#qp').value.trim(), address: $('#qa').value.trim() };
   draft.date = $('#qd').value; draft.status = $('#qs').value; draft.notes = $('#qnotes').value;
   draft.followUp = $('#qfu').value; draft.discount = num($('#qdisc').value);
+  const advAmt = num($('#qadva').value);
+  draft.advance = advAmt ? { amount: advAmt, date: $('#qadvd').value, mode: $('#qadvm').value, note: $('#qadvn').value.trim() || 'Advance' } : null;
   draft.items = draft.items.filter(it => it.name || num(it.qty) || num(it.rate));
   if (!draft.client.name) { alert('Enter customer name'); return; }
   if (id) Object.assign(byId('quotes', id), draft);
@@ -398,10 +429,13 @@ const JOB_STATUS = ['scheduled', 'in progress', 'completed', 'cancelled'];
 function jobFromQuote(qid) {
   const q = byId('quotes', qid);
   q.status = 'accepted';
+  const payments = q.advance && num(q.advance.amount)
+    ? [{ date: q.advance.date || today(), amount: q.advance.amount, mode: q.advance.mode, note: q.advance.note }]
+    : [];
   const j = {
     id: uid(), no: ++db.counters.job, quoteId: q.id, client: { ...q.client },
     items: JSON.parse(JSON.stringify(q.items)), discount: q.discount, total: quoteTotal(q),
-    status: 'scheduled', start: today(), end: '', workers: [], payments: [], notes: '',
+    status: 'scheduled', start: today(), end: '', workers: [], payments, notes: '',
   };
   db.jobs.push(j); save(); closeModal(); go('jobs'); editJob(j.id);
 }
@@ -699,6 +733,151 @@ function viewReports() {
       <div class="row"><span>${esc(j.client.name)} <span class="mut">J-${j.no}</span></span><b style="color:var(--red)">${money(bal)}</b></div>
       <div class="mut">${badge(j.status)} · Total ${money(j.total)} · Paid ${money(jobPaid(j))}</div>
     </div>`).join('') : '<div class="card" style="color:var(--g)">✅ All balances cleared!</div>'}`;
+}
+
+// ---------- CRM ----------
+function viewCRM() {
+  const customers = [...buildCustomerMap().values()].sort((a, b) => a.name.localeCompare(b.name));
+  renderList = () => {
+    const list = customers.filter(c => !search || JSON.stringify(c).toLowerCase().includes(search.toLowerCase()));
+    $('#list').innerHTML = list.length ? list.map(c => {
+      const activeJobs = c.jobs.filter(j => j.status !== 'cancelled');
+      const totalVal  = activeJobs.reduce((s, j) => s + num(j.total), 0);
+      const totalPaid = activeJobs.reduce((s, j) => s + jobPaid(j), 0);
+      const bal = totalVal - totalPaid;
+      const balTag = bal > 0 ? `<b style="color:var(--red)">${money(bal)} due</b>`
+                   : totalVal > 0  ? `<span style="color:var(--g)">✅ Cleared</span>` : '';
+      return `<div class="card click" onclick="showCRMStatement(${JSON.stringify(c.key)})">
+        <div class="row"><span class="big">${esc(c.name)}</span>${balTag}</div>
+        <div class="mut">📞 ${esc(c.phone)}${c.address ? ' · ' + esc(c.address.split('\n')[0]) : ''}</div>
+        <div class="mut">${c.visits.length} visit · ${c.quotes.length} quote · ${c.jobs.length} job
+          ${totalVal ? ' · Value ' + money(totalVal) : ''}</div>
+      </div>`;
+    }).join('') : '<div class="empty">No customers yet</div>';
+  };
+  setTimeout(renderList);
+  return `<h2>Customers / CRM</h2>${searchBox('Search name, phone, address…')}<div id="list"></div>`;
+}
+
+function showCRMStatement(key) {
+  const c = buildCustomerMap().get(key);
+  if (!c) return;
+  const activeJobs = c.jobs.filter(j => j.status !== 'cancelled');
+  const totalVal   = activeJobs.reduce((s, j) => s + num(j.total), 0);
+  const totalPaid  = activeJobs.reduce((s, j) => s + jobPaid(j), 0);
+  const totalQuoted = c.quotes.reduce((s, q) => s + quoteTotal(q), 0);
+  const bal = totalVal - totalPaid;
+
+  const workerName = id => { const w = db.workers.find(x => x.id === id); return w ? w.name : id; };
+
+  const visitRows = c.visits.length ? c.visits.map(v => `
+    <div class="crm-row">
+      <span>${fmtDate(v.date)}${v.time ? ' ' + v.time : ''}</span>
+      ${badge(v.status)}
+      <span>${esc(v.service || '')}${v.area ? ' · ' + v.area + ' sq.ft' : ''}</span>
+      <span class="mut">${esc(v.address || '')}</span>
+    </div>`).join('') : '<div class="mut">No visits</div>';
+
+  const quoteRows = c.quotes.length ? c.quotes.map(q => `
+    <div class="crm-block">
+      <div class="row"><b>Q-${q.no}</b> ${fmtDate(q.date)} ${badge(q.status)}
+        <b>${money(quoteTotal(q))}</b>
+        <button class="btn sm sec" onclick="closeModal();editQuote('${q.id}')">Open</button>
+      </div>
+      <table style="margin-top:6px">
+        ${q.items.map(it => `<tr><td>${esc(it.name)}</td><td class="n mut">${esc(it.qty)} × ${esc(it.rate)}</td><td class="n">${money(num(it.qty)*num(it.rate))}</td></tr>`).join('')}
+        ${num(q.discount) ? `<tr><td class="mut">Discount</td><td></td><td class="n mut">−${money(q.discount)}</td></tr>` : ''}
+      </table>
+      ${q.advance && num(q.advance.amount) ? `<div class="mut" style="margin-top:4px">💰 Advance ${money(q.advance.amount)} (${q.advance.mode})</div>` : ''}
+    </div>`).join('') : '<div class="mut">No quotes</div>';
+
+  const jobRows = c.jobs.length ? c.jobs.map(j => {
+    const paid = jobPaid(j), jbal = j.total - paid;
+    return `<div class="crm-block">
+      <div class="row"><b>J-${j.no}</b> ${fmtDate(j.start)} ${badge(j.status)}
+        <b>${money(j.total)}</b>
+        <button class="btn sm sec" onclick="closeModal();go('jobs');editJob('${j.id}')">Open</button>
+      </div>
+      <table style="margin-top:6px">
+        ${j.items.map(it => `<tr><td>${esc(it.name)}</td><td class="n mut">${esc(it.qty)} × ${esc(it.rate)}</td><td class="n">${money(num(it.qty)*num(it.rate))}</td></tr>`).join('')}
+      </table>
+      ${j.workers.length ? `<div class="mut" style="margin-top:6px">👷 ${j.workers.map(workerName).join(', ')}</div>` : ''}
+      <table style="margin-top:8px">
+        <tr><th>Date</th><th>Mode</th><th>Note</th><th class="n">Amount</th></tr>
+        ${j.payments.map(p => `<tr><td>${fmtDate(p.date)}</td><td>${esc(p.mode)}</td><td>${esc(p.note)}</td><td class="n">${money(p.amount)}</td></tr>`).join('')}
+        <tr style="font-weight:700"><td colspan="3">Balance due</td><td class="n" style="color:${jbal>0?'var(--red)':'var(--g)'}">${money(jbal)}</td></tr>
+      </table>
+    </div>`;
+  }).join('') : '<div class="mut">No jobs</div>';
+
+  openModal(`
+    <div class="row" style="margin-bottom:12px">
+      <h2 style="margin:0">${esc(c.name)}</h2>
+      <div style="display:flex;gap:6px">
+        <button class="btn sm sec" onclick="printCRMStatement(${JSON.stringify(key)})">🖨️ Print</button>
+        <button class="btn sm sec" onclick="closeModal()">✕</button>
+      </div>
+    </div>
+    <div class="mut" style="margin-bottom:12px">📞 ${esc(c.phone)}${c.address ? '<br>📍 ' + esc(c.address) : ''}</div>
+
+    <div class="stats" style="margin-bottom:16px">
+      <div class="stat"><b>${money(totalQuoted)}</b>Total estimated</div>
+      <div class="stat"><b>${money(totalVal)}</b>Job value</div>
+      <div class="stat"><b>${money(totalPaid)}</b>Collected</div>
+      <div class="stat" style="${bal>0?'border-color:var(--red)':''}"><b style="color:${bal>0?'var(--red)':'var(--g)'}">${money(bal)}</b>Balance</div>
+    </div>
+
+    <h3>📍 Site Visits</h3>${visitRows}
+    <h3>🧾 Estimates / Quotes</h3>${quoteRows}
+    <h3>🛠️ Jobs & Accounts</h3>${jobRows}
+  `);
+}
+
+function printCRMStatement(key) {
+  const c = buildCustomerMap().get(key);
+  if (!c) return;
+  const s = db.settings;
+  const activeJobs = c.jobs.filter(j => j.status !== 'cancelled');
+  const totalVal  = activeJobs.reduce((s, j) => s + num(j.total), 0);
+  const totalPaid = activeJobs.reduce((s, j) => s + jobPaid(j), 0);
+  const bal = totalVal - totalPaid;
+  const workerName = id => { const w = db.workers.find(x => x.id === id); return w ? w.name : ''; };
+
+  $('#print').innerHTML = `<div class="doc">
+    <div class="hd">
+      <div class="logo"><b>X-CITE</b> FLOORING</div>
+      <div class="tag">${esc(s.tagline)}</div>
+      <div class="ph">${esc(s.phone)}</div>
+    </div>
+    <div class="title">CUSTOMER STATEMENT</div>
+    <table style="margin-bottom:14px;border:none"><tr>
+      <td style="border:none"><b>${esc(c.name)}</b><br>${esc(c.phone)}${c.address ? '<br>' + esc(c.address) : ''}</td>
+      <td style="border:none;text-align:right">Date: ${fmtDate(today())}</td>
+    </tr></table>
+    <table style="margin-bottom:12px">
+      <tr><th>Total Job Value</th><th class="n">${money(totalVal)}</th></tr>
+      <tr><th>Total Collected</th><th class="n">${money(totalPaid)}</th></tr>
+      <tr class="totrow"><th>Balance Due</th><th class="n">${money(bal)}</th></tr>
+    </table>
+    ${c.jobs.map(j => {
+      const paid = jobPaid(j), jbal = j.total - paid;
+      return `<h3 style="margin:16px 0 6px;font-size:14px">Job J-${j.no} · ${fmtDate(j.start)} · ${j.status}</h3>
+      ${j.workers.length ? `<p style="margin:0 0 6px;font-size:12px;color:#555">Workers: ${j.workers.map(workerName).join(', ')}</p>` : ''}
+      <table>
+        <tr><th>#</th><th>Description</th><th class="n">Measurement</th><th class="n">Amount (₹)</th></tr>
+        ${j.items.map((it, i) => `<tr><td>${i+1}</td><td>${esc(it.name)}</td><td class="n">${esc(it.qty)} × ${esc(it.rate)}</td><td class="n">${money(num(it.qty)*num(it.rate))}</td></tr>`).join('')}
+        <tr class="totrow"><td colspan="3" class="n">Job Total</td><td class="n">${money(j.total)}</td></tr>
+      </table>
+      <table style="margin-top:6px">
+        <tr><th>Payment Date</th><th>Mode</th><th>Note</th><th class="n">Amount</th></tr>
+        ${j.payments.map(p => `<tr><td>${fmtDate(p.date)}</td><td>${esc(p.mode)}</td><td>${esc(p.note)}</td><td class="n">${money(p.amount)}</td></tr>`).join('')}
+        <tr class="totrow"><td colspan="3" class="n">Balance</td><td class="n">${money(jbal)}</td></tr>
+      </table>`;
+    }).join('')}
+    <div class="note">${esc(s.terms).replace(/\n/g,'<br>')}</div>
+    <div class="sign">For ${esc(s.company)}<br><br><br>Authorised Signatory</div>
+  </div>`;
+  setTimeout(() => window.print(), 100);
 }
 
 // ---------- Settings & backup ----------

@@ -48,6 +48,9 @@ td.n, th.n { text-align: right; }
 .alert-bar { background: #fff3e0; border: 1px solid #ffb74d; color: #e65100; border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; cursor: pointer; font-weight: 600; }
 .bar-bg { background: #e8f5e9; border-radius: 4px; height: 10px; }
 .bar-fill { background: var(--g); height: 10px; border-radius: 4px; min-width: 3px; transition: width .3s; }
+.crm-block { border: 1px solid var(--bd); border-radius: 8px; padding: 10px; margin-bottom: 10px; background: var(--card); }
+.crm-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 6px 0; border-bottom: 1px solid #eee; font-size: 14px; }
+.adv-box { background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 10px; padding: 12px; margin-top: 10px; }
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: flex-start; justify-content: center; z-index: 20; overflow-y: auto; padding: 20px 10px; }
 .modal.hidden { display: none; }
 .modal-box { background: var(--ow); border-radius: 12px; padding: 16px; width: 100%; max-width: 720px; }
