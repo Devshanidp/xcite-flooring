@@ -350,10 +350,16 @@ function del(list, id) {
 // ---------- Quotes / Estimates ----------
 const QUOTE_STATUS = ['draft', 'sent', 'accepted', 'rejected'];
 
+function quoteAdvTotal(q) {
+  const list = q.advances || (q.advance && num(q.advance.amount) ? [q.advance] : []);
+  return list.reduce((s, a) => s + num(a.amount), 0);
+}
 function quoteCard(q) {
+  const adv = quoteAdvTotal(q);
   return `<div class="card click" onclick="editQuote('${q.id}')">
     <div class="row"><span class="big">${esc(q.client.name)}</span>${badge(q.status)}</div>
     <div class="row"><span class="mut">Q-${q.no} · ${fmtDate(q.date)} · ${q.items.length} item(s)</span><b>${money(quoteTotal(q))}</b></div>
+    ${adv ? `<div class="mut" style="color:var(--g)">💰 Advance received: ${money(adv)}</div>` : ''}
   </div>`;
 }
 
@@ -379,11 +385,16 @@ function rateOptions(selected) {
 function editQuote(id, preset) {
   const q = id ? byId('quotes', id) : null;
   draft = JSON.parse(JSON.stringify(q || {
-    date: today(), status: 'draft', discount: 0, notes: '', followUp: '', advance: null,
+    date: today(), status: 'draft', discount: 0, notes: '', followUp: '', advances: [],
     client: { name: '', phone: '', address: '' },
     items: [{ rateId: '', name: '', qty: '', rate: '', unit: 'sq.ft' }],
     ...preset,
   }));
+  // migrate old single-advance to array
+  if (!draft.advances) {
+    draft.advances = draft.advance && num(draft.advance.amount) ? [{ id: uid(), ...draft.advance }] : [];
+    delete draft.advance;
+  }
   const job = q && db.jobs.find(j => j.quoteId === q.id);
   openModal(`
     <h2>${q ? 'Quote Q-' + q.no : 'New Quote / Estimate'} <button class="btn sec sm" onclick="closeModal()">✕</button></h2>
@@ -404,12 +415,14 @@ function editQuote(id, preset) {
     <label>Notes (shown on quote)</label><textarea id="qnotes">${esc(draft.notes)}</textarea>
     <label>Follow-up reminder date</label><input id="qfu" type="date" value="${esc(draft.followUp)}">
     <div class="adv-box">
-      <b>💰 Advance Received</b> <span class="mut">(leave blank if none)</span>
-      <div class="grid2" style="margin-top:8px">
-        <div><label>Amount (₹)</label><input id="qadva" type="number" placeholder="0" value="${esc(draft.advance?.amount || '')}"></div>
-        <div><label>Date</label><input id="qadvd" type="date" value="${esc(draft.advance?.date || today())}"></div>
-        <div><label>Mode</label><select id="qadvm">${['Cash','UPI','Bank','Cheque'].map(m=>`<option${(draft.advance?.mode||'Cash')===m?' selected':''}>${m}</option>`).join('')}</select></div>
-        <div><label>Note</label><input id="qadvn" value="${esc(draft.advance?.note||'Advance')}"></div>
+      <b>💰 Advance Payments</b>
+      <div style="overflow-x:auto;margin-top:8px"><table id="adv-table"></table></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:6px;align-items:end;margin-top:10px">
+        <div><label style="margin-top:0">Date</label><input id="advdate" type="date" value="${today()}"></div>
+        <div><label style="margin-top:0">Amount (₹)</label><input id="advamt" type="number" placeholder="0"></div>
+        <div><label style="margin-top:0">Mode</label><select id="advmode"><option>Cash</option><option>UPI</option><option>Bank</option><option>Cheque</option></select></div>
+        <div><label style="margin-top:0">Note</label><input id="advnote" value="Advance"></div>
+        <div style="padding-top:18px"><button class="btn sm" onclick="addAdvance()" type="button">+ Add</button></div>
       </div>
     </div>
     <div class="btns">
@@ -422,6 +435,37 @@ function editQuote(id, preset) {
         <button class="btn red" onclick="del('quotes','${id}')">Delete</button>` : ''}
     </div>`);
   drawItems();
+  drawAdvances();
+}
+
+function drawAdvances() {
+  const tbl = document.getElementById('adv-table');
+  if (!tbl) return;
+  const list = draft.advances || [];
+  const total = list.reduce((s, a) => s + num(a.amount), 0);
+  tbl.innerHTML = `<tr><th>Date</th><th>Mode</th><th>Note</th><th class="n">Amount</th><th></th></tr>` +
+    (list.length ? list.map((a, i) => `<tr>
+      <td>${fmtDate(a.date)}</td><td>${esc(a.mode)}</td><td>${esc(a.note)}</td>
+      <td class="n">${money(a.amount)}</td>
+      <td style="white-space:nowrap">
+        <button class="btn sec sm" onclick="editAdvance(${i})" type="button">✏️</button>
+        <button class="btn red sm" onclick="delAdvance(${i})" type="button">✕</button>
+      </td></tr>`).join('') : `<tr><td colspan="5" class="mut" style="text-align:center;padding:8px">No advances yet</td></tr>`) +
+    (total ? `<tr style="font-weight:700"><td colspan="3" style="text-align:right">Total received</td><td class="n">${money(total)}</td><td></td></tr>` : '');
+}
+function addAdvance() {
+  const amount = num($('#advamt').value);
+  if (!amount) { alert('Enter advance amount'); return; }
+  if (!draft.advances) draft.advances = [];
+  draft.advances.push({ id: uid(), date: $('#advdate').value || today(), amount, mode: $('#advmode').value, note: $('#advnote').value.trim() || 'Advance' });
+  $('#advamt').value = ''; $('#advnote').value = 'Advance'; $('#advdate').value = today();
+  drawAdvances();
+}
+function delAdvance(i) { draft.advances.splice(i, 1); drawAdvances(); }
+function editAdvance(i) {
+  const a = draft.advances[i];
+  $('#advdate').value = a.date; $('#advamt').value = a.amount; $('#advmode').value = a.mode; $('#advnote').value = a.note;
+  draft.advances.splice(i, 1); drawAdvances(); $('#advamt').focus();
 }
 
 function drawItems() {
@@ -459,8 +503,7 @@ function saveQuote(id, keepOpen) {
   draft.client = { name: $('#qn').value.trim(), phone: $('#qp').value.trim(), address: $('#qa').value.trim() };
   draft.date = $('#qd').value; draft.status = $('#qs').value; draft.notes = $('#qnotes').value;
   draft.followUp = $('#qfu').value; draft.discount = num($('#qdisc').value);
-  const advAmt = num($('#qadva').value);
-  draft.advance = advAmt ? { amount: advAmt, date: $('#qadvd').value, mode: $('#qadvm').value, note: $('#qadvn').value.trim() || 'Advance' } : null;
+  if (!draft.advances) draft.advances = [];
   draft.items = draft.items.filter(it => it.name || num(it.qty) || num(it.rate));
   if (!draft.client.name) { alert('Enter customer name'); return; }
   if (id) Object.assign(byId('quotes', id), draft);
@@ -473,9 +516,12 @@ function saveQuote(id, keepOpen) {
 function shareQuote(id) {
   const q = byId('quotes', id), s = db.settings;
   const lines = q.items.map(it => `• ${it.name}: ${it.qty} ${it.unit} × ₹${it.rate} = ${money(num(it.qty) * num(it.rate))}`);
+  const adv = quoteAdvTotal(q);
   const text = `*${s.company}* – Quotation Q-${q.no}\nDate: ${fmtDate(q.date)}\nCustomer: ${q.client.name}\n\n${lines.join('\n')}\n` +
     (num(q.discount) ? `Discount: -${money(q.discount)}\n` : '') +
-    `*Total: ${money(quoteTotal(q))}*\n\n${q.notes ? q.notes + '\n\n' : ''}${s.terms}\n\n📞 ${s.phone}`;
+    `*Total: ${money(quoteTotal(q))}*\n` +
+    (adv ? `Advance received: ${money(adv)}\nBalance: ${money(quoteTotal(q) - adv)}\n` : '') +
+    `\n${q.notes ? q.notes + '\n\n' : ''}${s.terms}\n\n📞 ${s.phone}`;
   if (q.status === 'draft') { q.status = 'sent'; save(); }
   window.open(waLink(q.client.phone, text), '_blank');
 }
@@ -486,9 +532,8 @@ const JOB_STATUS = ['scheduled', 'in progress', 'completed', 'cancelled'];
 function jobFromQuote(qid) {
   const q = byId('quotes', qid);
   q.status = 'accepted';
-  const payments = q.advance && num(q.advance.amount)
-    ? [{ date: q.advance.date || today(), amount: q.advance.amount, mode: q.advance.mode, note: q.advance.note }]
-    : [];
+  const advList = q.advances?.length ? q.advances : (q.advance && num(q.advance.amount) ? [q.advance] : []);
+  const payments = advList.map(a => ({ date: a.date || today(), amount: num(a.amount), mode: a.mode || 'Cash', note: a.note || 'Advance' }));
   const j = {
     id: uid(), no: ++db.counters.job, quoteId: q.id, client: { ...q.client },
     items: JSON.parse(JSON.stringify(q.items)), discount: q.discount, total: quoteTotal(q),
@@ -880,7 +925,7 @@ function showCRMStatement(key) {
             ${num(q.discount) ? `<tr><td class="mut" colspan="2">Discount</td><td class="n mut">−${money(q.discount)}</td></tr>` : ''}
             <tr class="tl-total"><td colspan="2"><b>Total</b></td><td class="n"><b>${money(qt)}</b></td></tr>
           </table>
-          ${q.advance && num(q.advance.amount) ? `<div class="tl-adv">💰 Advance received: <b>${money(q.advance.amount)}</b> · ${esc(q.advance.mode)} · ${fmtDate(q.advance.date)}</div>` : ''}
+          ${(() => { const list = q.advances?.length ? q.advances : (q.advance && num(q.advance.amount) ? [q.advance] : []); return list.length ? `<div class="tl-adv">💰 Advance: ${list.map(a => `<b>${money(a.amount)}</b> · ${esc(a.mode)} · ${fmtDate(a.date)}`).join(' &nbsp;|&nbsp; ')} &nbsp;=&nbsp; <b>${money(list.reduce((s,a)=>s+num(a.amount),0))}</b></div>` : ''; })()}
           ${q.notes ? `<div class="mut" style="margin-top:6px">${esc(q.notes)}</div>` : ''}
         </div>
       </div>`;
@@ -1086,6 +1131,7 @@ function printDoc(type, id) {
       ${num(d.discount) ? `<tr><td colspan="3" class="n">Discount</td><td class="n">-${money(d.discount)}</td></tr>` : ''}
       ${!isQ && total !== sub - num(d.discount) ? `<tr class="totrow"><td colspan="3" class="n">Adjusted Total</td><td class="n">${money(total)}</td></tr>` : ''}
       <tr class="totrow"><td colspan="3" class="n">Total</td><td class="n">${money(total)}</td></tr>
+      ${isQ ? (() => { const list = d.advances?.length ? d.advances : (d.advance && num(d.advance.amount) ? [d.advance] : []); const advTotal = list.reduce((s,a)=>s+num(a.amount),0); return advTotal ? list.map(a=>`<tr><td colspan="3" class="n">Advance (${esc(a.mode)} ${fmtDate(a.date)})</td><td class="n">${money(a.amount)}</td></tr>`).join('') + `<tr class="totrow"><td colspan="3" class="n">Balance Due</td><td class="n">${money(total-advTotal)}</td></tr>` : ''; })() : ''}
       ${!isQ ? `<tr><td colspan="3" class="n">Received</td><td class="n">${money(paid)}</td></tr>
         <tr class="totrow"><td colspan="3" class="n">Balance Due</td><td class="n">${money(total - paid)}</td></tr>` : ''}
     </table>
