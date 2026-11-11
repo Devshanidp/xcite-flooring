@@ -376,3 +376,116 @@ td.n, th.n { text-align: right; }
   font-size: 17px; transition: background .15s, color .15s;
 }
 .btn-logout:hover { background: rgba(255,255,255,.22); color: #fff; }
+
+/* ── Payment / advance input grid ── */
+.grid-pay {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr auto;
+  gap: 8px; align-items: end;
+}
+.pay-add-btn { padding-top: 20px; }
+
+/* ════════════════════════════════════
+   RESPONSIVE — fix auto-zoom + layout
+   ════════════════════════════════════ */
+
+/* iOS auto-zoom fix: inputs must be ≥16px on mobile */
+@media (max-width: 768px) {
+  input, select, textarea { font-size: 16px !important; }
+  .item-sel, .item-desc, .inp-sm { font-size: 16px !important; }
+}
+
+/* Safe-area insets for notched phones (iPhone X+) */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .tabs { padding-bottom: env(safe-area-inset-bottom); }
+  main  { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
+  #login-screen { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+}
+
+/* ── Tablet (≤768px) ── */
+@media (max-width: 768px) {
+  main { padding: 16px 14px; padding-bottom: 90px; }
+  .stats { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+  .modal { padding: 16px 10px 44px; }
+  .modal-box { padding: 18px 16px; border-radius: 16px; }
+}
+
+/* ── Mobile (≤600px) ── */
+@media (max-width: 600px) {
+  /* Layout */
+  main { padding: 12px 10px; padding-bottom: 90px; }
+  h2 { font-size: 17px; margin-bottom: 14px; }
+  h3 { margin: 16px 0 8px; }
+
+  /* Topbar */
+  .topbar { padding: 0 12px; height: 48px; }
+  .brand { font-size: 15px; letter-spacing: 1.5px; }
+  .sync-dot { width: 8px; height: 8px; }
+
+  /* Tab bar */
+  .tabs button { min-width: 54px; font-size: 9px; padding: 7px 2px 6px; }
+  .tabs button .i { font-size: 18px; }
+
+  /* Cards */
+  .card { padding: 12px; border-radius: 12px; }
+  .amount-tag { font-size: 17px; }
+  .card-meta { gap: 10px; font-size: 11px; }
+  .big { font-size: 15px; }
+
+  /* Stats */
+  .stats { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat { padding: 12px 14px; }
+  .stat b { font-size: 18px; }
+
+  /* Buttons */
+  .btn { padding: 8px 12px; font-size: 13px; }
+  .btn.sm { padding: 5px 9px; font-size: 12px; }
+  .btns { gap: 6px; }
+
+  /* 2-col grid → 1-col on small phones */
+  .grid2 { grid-template-columns: 1fr; gap: 0; }
+
+  /* Payment/advance grid: 2×2 + full-width Add */
+  .grid-pay { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .pay-add-btn { grid-column: 1 / -1; padding-top: 0; display: flex; align-items: flex-end; }
+  .pay-add-btn .btn { width: 100%; justify-content: center; padding: 10px; }
+
+  /* Summary box */
+  .summary-box { padding: 12px; }
+  .summary-total { font-size: 18px; }
+
+  /* Fin boxes */
+  .fin-summary { gap: 8px; }
+  .fin-box .fin-val { font-size: 20px; }
+  .fin-box { padding: 12px; }
+
+  /* Modal */
+  .modal { padding: 10px 6px 44px; }
+  .modal-box { padding: 14px 12px; border-radius: 14px; }
+
+  /* Items table: horizontal scroll with hint */
+  .items-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; }
+
+  /* CRM / timeline */
+  .timeline { padding-left: 20px; }
+  .tl-dot { left: -17px; width: 11px; height: 11px; }
+  .tl-card { padding: 12px; }
+
+  /* Chips */
+  .chips button { padding: 4px 10px; font-size: 11px; }
+
+  /* Login */
+  .login-box { padding: 24px 18px 20px; }
+  .login-title { font-size: 20px; }
+  .login-wrap { padding: 16px; }
+}
+
+/* ── Small phones (≤380px) ── */
+@media (max-width: 380px) {
+  .stats { grid-template-columns: 1fr 1fr; }
+  .stat b { font-size: 16px; }
+  .tabs button { min-width: 48px; font-size: 8.5px; }
+  .amount-tag { font-size: 15px; }
+  h2 { font-size: 15px; }
+  .brand { font-size: 13px; letter-spacing: 1px; }
+}

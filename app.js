@@ -423,7 +423,7 @@ function editQuote(id, preset) {
     </div>
     <label>Site address</label><textarea id="qa">${esc(draft.client.address)}</textarea>
     <h3>Work items</h3>
-    <div style="overflow-x:auto"><table class="items" id="items"></table></div>
+    <div class="items-scroll"><table class="items" id="items"></table></div>
     <button class="btn sec sm" style="margin-top:10px" onclick="addItem()"><i class="ri-add-line"></i> Add item</button>
     <div class="summary-box" style="margin-top:14px">
       <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px">
@@ -436,12 +436,12 @@ function editQuote(id, preset) {
     <div class="adv-box">
       <b>💰 Advance Payments</b>
       <div style="overflow-x:auto;margin-top:8px"><table id="adv-table"></table></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:6px;align-items:end;margin-top:10px">
+      <div class="grid-pay" style="margin-top:10px">
         <div><label style="margin-top:0">Date</label><input id="advdate" type="date" value="${today()}"></div>
         <div><label style="margin-top:0">Amount (₹)</label><input id="advamt" type="number" placeholder="0"></div>
         <div><label style="margin-top:0">Mode</label><select id="advmode"><option>Cash</option><option>UPI</option><option>Bank</option><option>Cheque</option></select></div>
         <div><label style="margin-top:0">Note</label><input id="advnote" value="Advance"></div>
-        <div style="padding-top:18px"><button class="btn sm" onclick="addAdvance()" type="button">+ Add</button></div>
+        <div class="pay-add-btn"><button class="btn sm" onclick="addAdvance()" type="button"><i class="ri-add-line"></i> Add</button></div>
       </div>
     </div>
     <div class="btns">
@@ -639,17 +639,17 @@ function editJob(id) {
       <div class="fin-box fin-paid"><div class="fin-label"><i class="ri-checkbox-circle-line"></i> Total Paid</div><div class="fin-val">${money(paid)}</div></div>
       <div class="fin-box fin-bal"><div class="fin-label"><i class="ri-time-line"></i> Balance Due</div><div class="fin-val">${money(j.total - paid)}</div></div>
     </div>
-    <div style="overflow-x:auto"><table>
+    <div class="items-scroll"><table>
       <tr><th>Date</th><th>Mode</th><th>Note</th><th class="n">Amount</th><th></th></tr>
       ${j.payments.map((p, i) => `<tr><td>${fmtDate(p.date)}</td><td>${esc(p.mode)}</td><td>${esc(p.note)}</td><td class="n item-amt">${money(p.amount)}</td>
         <td><button class="btn-icon-del" onclick="delPayment('${id}',${i})" title="Delete">×</button></td></tr>`).join('')}
     </table></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:8px;align-items:end;margin-top:12px">
+    <div class="grid-pay" style="margin-top:12px">
       <div><label>Date</label><input id="pd" type="date" value="${today()}"></div>
       <div><label>Amount (₹)</label><input id="pa" type="number" placeholder="0"></div>
       <div><label>Mode</label><select id="pm"><option>Cash</option><option>UPI</option><option>Bank</option><option>Cheque</option></select></div>
       <div><label>Note</label><input id="pn" placeholder="Advance / part payment"></div>
-      <div style="padding-top:18px"><button class="btn sm" onclick="addPayment('${id}')"><i class="ri-add-line"></i> Add</button></div>
+      <div class="pay-add-btn"><button class="btn sm" onclick="addPayment('${id}')"><i class="ri-add-line"></i> Add</button></div>
     </div>
 
     <label>Job notes</label><textarea id="jnotes">${esc(j.notes)}</textarea>
